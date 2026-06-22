@@ -80,6 +80,7 @@
 <div id="app-shell" style="display:none;">
   <nav>
     <button data-tab="liste" class="active">Materialliste</button>
+    <button data-tab="mannschaften">Mannschaften</button>
     <button data-tab="hinzufuegen">Hinzufügen</button>
     <button data-tab="einstellungen" style="margin-left:auto;">Einstellungen</button>
   </nav>
@@ -123,6 +124,30 @@
       </div>
     </section>
 
+    <!-- Mannschaften -->
+    <section class="tab-section" id="tab-mannschaften">
+      <div class="card">
+        <h2>Neue Mannschaft anlegen</h2>
+        <form id="team-form">
+          <div class="form-grid">
+            <div class="form-field"><label>Name *</label><input type="text" id="team-name" placeholder="z.B. U19, D-Jugend" required /></div>
+          </div>
+          <button class="btn" type="submit">Mannschaft hinzufügen</button>
+        </form>
+      </div>
+      <div class="card">
+        <h2>Mannschaftsliste</h2>
+        <p class="muted" style="margin-bottom:10px;">
+          Name direkt anklicken und bearbeiten – die Änderung wirkt sich auf alle zugeordneten Material-Einträge aus.
+        </p>
+        <div class="empty-state" id="teams-empty" style="display:none;">Noch keine Mannschaft angelegt.</div>
+        <div class="team-edit-row team-edit-header">
+          <span>Name</span><span>Material-Einträge</span><span></span>
+        </div>
+        <div class="player-grid" id="teams-list"></div>
+      </div>
+    </section>
+
     <!-- Hinzufügen -->
     <section class="tab-section" id="tab-hinzufuegen">
       <div class="card">
@@ -131,7 +156,7 @@
           <div class="form-grid">
             <div class="form-field"><label>Name *</label><input type="text" id="m-name" required /></div>
             <div class="form-field"><label>Kategorie</label><input type="text" id="m-kategorie" placeholder="z.B. Bekleidung, Sportgerät" /></div>
-            <div class="form-field"><label>Mannschaft</label><input type="text" id="m-mannschaft" placeholder="z.B. U19, D-Jugend" /></div>
+            <div class="form-field"><label>Mannschaft</label><select id="m-mannschaft"><option value="">— keine —</option></select></div>
             <div class="form-field"><label>Menge</label><input type="number" id="m-menge" min="0" step="1" /></div>
             <div class="form-field"><label>Einheit</label><input type="text" id="m-einheit" placeholder="z.B. Stk, Set, Paar" /></div>
             <div class="form-field"><label>Standort</label><input type="text" id="m-standort" placeholder="z.B. Schrank 1, Lager" /></div>

@@ -1,4 +1,4 @@
-let appData = { materials: [] };
+let appData = { materials: [], teams: [] };
 let fileHandle = null;
 let pendingHandle = null;
 let backupDirHandle = null;
@@ -31,6 +31,7 @@ function escapeHtml(str) {
 
 function migrateData(data) {
   if (!Array.isArray(data.materials)) data.materials = [];
+  if (!Array.isArray(data.teams)) data.teams = [];
   data.materials.forEach((m) => {
     if (m.id === undefined) m.id = uuid();
     if (m.name === undefined) m.name = "";
@@ -41,7 +42,44 @@ function migrateData(data) {
     if (m.standort === undefined) m.standort = "";
     if (m.zustand === undefined) m.zustand = "";
   });
+  // Bestehende Freitext-Mannschaften ohne Stammdatensatz automatisch als Mannschaft anlegen
+  const existingNames = new Set(data.teams.map((t) => t.name.toLowerCase()));
+  data.materials.forEach((m) => {
+    if (m.mannschaft && !existingNames.has(m.mannschaft.toLowerCase())) {
+      data.teams.push({ id: uuid(), name: m.mannschaft });
+      existingNames.add(m.mannschaft.toLowerCase());
+    }
+  });
   return data;
+}
+
+function resolveTeamByName(name) {
+  const trimmed = (name || "").trim();
+  if (!trimmed) return null;
+  let t = appData.teams.find((x) => x.name.toLowerCase() === trimmed.toLowerCase());
+  if (!t) {
+    t = { id: uuid(), name: trimmed };
+    appData.teams.push(t);
+  }
+  return t;
+}
+
+function teamOptionsHtml(selected) {
+  const names = appData.teams.map((t) => t.name);
+  const options = [{ value: "", label: "— keine —" }];
+  if (selected && !names.includes(selected)) {
+    options.push({ value: selected, label: `${selected} (nicht angelegt)` });
+  }
+  names.sort((a, b) => a.localeCompare(b, "de")).forEach((n) => options.push({ value: n, label: n }));
+  return options.map((o) => `<option value="${escapeHtml(o.value)}" ${o.value === selected ? "selected" : ""}>${escapeHtml(o.label)}</option>`).join("");
+}
+
+function populateMannschaftSelects() {
+  const addSelect = document.getElementById("m-mannschaft");
+  if (addSelect) {
+    const prev = addSelect.value;
+    addSelect.innerHTML = teamOptionsHtml(prev);
+  }
 }
 
 // ---------- Persistenz ----------
@@ -74,7 +112,7 @@ async function init() {
         const data = await davReadFile(config);
         storageMode = "webdav";
         webdavConfig = config;
-        appData = data && Array.isArray(data.materials) ? data : { materials: [] };
+        appData = data && Array.isArray(data.materials) ? data : { materials: [], teams: [] };
         migrateData(appData);
         startApp();
         return;
@@ -120,11 +158,11 @@ async function connectWebdav(config) {
   try {
     let data = await davReadFile(config);
     if (data === null) {
-      const empty = { materials: [] };
+      const empty = { materials: [], teams: [] };
       await davWriteFile(config, empty);
       data = empty;
     }
-    appData = Array.isArray(data.materials) ? data : { materials: [] };
+    appData = Array.isArray(data.materials) ? data : { materials: [], teams: [] };
     migrateData(appData);
     storageMode = "webdav";
     webdavConfig = config;
@@ -226,7 +264,7 @@ async function connectNew() {
     }
     fileHandle = handle;
     storageMode = "fs";
-    appData = { materials: [] };
+    appData = { materials: [], teams: [] };
     migrateData(appData);
     await writeDataFile(fileHandle, appData);
     await FileStore.setStorageMode("fs");
@@ -261,10 +299,10 @@ async function saveCurrentDataToNewLocation() {
 async function loadAndStart() {
   try {
     const data = await readDataFile(fileHandle);
-    appData = data && Array.isArray(data.materials) ? data : { materials: [] };
+    appData = data && Array.isArray(data.materials) ? data : { materials: [], teams: [] };
   } catch (e) {
     console.error("Fehler beim Lesen der Datei", e);
-    appData = { materials: [] };
+    appData = { materials: [], teams: [] };
   }
   migrateData(appData);
   startApp();
@@ -327,10 +365,12 @@ function switchTab(tab) {
   document.querySelectorAll("nav button").forEach((b) => b.classList.toggle("active", b.dataset.tab === tab));
   document.querySelectorAll(".tab-section").forEach((s) => s.classList.toggle("active", s.id === "tab-" + tab));
   if (tab === "liste") renderListe();
+  if (tab === "mannschaften") renderTeams();
 }
 
 function renderAll() {
   renderVersionInfo();
+  populateMannschaftSelects();
   renderListe();
 }
 
@@ -443,7 +483,7 @@ function materialRowHtml(m) {
     <div class="material-edit-row" data-id="${m.id}">
       <input type="text" data-field="name" value="${escapeHtml(m.name)}" />
       <input type="text" data-field="kategorie" value="${escapeHtml(m.kategorie)}" />
-      <input type="text" data-field="mannschaft" value="${escapeHtml(m.mannschaft)}" />
+      <select data-field="mannschaft">${teamOptionsHtml(m.mannschaft)}</select>
       <input type="number" data-field="menge" value="${escapeHtml(m.menge)}" />
       <input type="text" data-field="einheit" value="${escapeHtml(m.einheit)}" />
       <input type="text" data-field="standort" value="${escapeHtml(m.standort)}" />
@@ -473,7 +513,7 @@ function renderListe() {
     </div>
   `).join("");
 
-  container.querySelectorAll("input").forEach((input) => {
+  container.querySelectorAll("input, select").forEach((input) => {
     input.addEventListener("change", () => commitMaterialEdit(input));
   });
   container.querySelectorAll('[data-action="delete"]').forEach((btn) => {
@@ -500,6 +540,100 @@ function deleteMaterial(id) {
   appData.materials = appData.materials.filter((m) => m.id !== id);
   persist();
   renderListe();
+}
+
+// ---------- Mannschaften ----------
+
+function setupTeamForm() {
+  document.getElementById("team-form").addEventListener("submit", (e) => {
+    e.preventDefault();
+    const input = document.getElementById("team-name");
+    const name = input.value.trim();
+    if (!name) return;
+    if (appData.teams.some((t) => t.name.toLowerCase() === name.toLowerCase())) {
+      alert("Diese Mannschaft existiert bereits.");
+      return;
+    }
+    appData.teams.push({ id: uuid(), name });
+    persist();
+    renderTeams();
+    populateMannschaftSelects();
+    e.target.reset();
+    input.focus();
+  });
+}
+
+function renderTeams() {
+  const empty = document.getElementById("teams-empty");
+  const container = document.getElementById("teams-list");
+  const teams = appData.teams.slice().sort((a, b) => a.name.localeCompare(b.name, "de"));
+  empty.style.display = teams.length === 0 ? "block" : "none";
+  container.innerHTML = teams.map((t) => {
+    const count = appData.materials.filter((m) => m.mannschaft === t.name).length;
+    return `
+      <div class="team-edit-row" data-id="${t.id}">
+        <input type="text" data-field="name" value="${escapeHtml(t.name)}" />
+        <span class="team-count">${count} Material-Eintrag/Einträge</span>
+        <button class="btn danger small" data-action="delete-team">Löschen</button>
+      </div>
+    `;
+  }).join("");
+
+  container.querySelectorAll('input[data-field="name"]').forEach((input) => {
+    input.addEventListener("change", () => commitTeamEdit(input));
+  });
+  container.querySelectorAll('[data-action="delete-team"]').forEach((btn) => {
+    btn.addEventListener("click", () => {
+      const id = btn.closest(".team-edit-row").dataset.id;
+      deleteTeam(id);
+    });
+  });
+}
+
+function commitTeamEdit(input) {
+  const row = input.closest(".team-edit-row");
+  const id = row.dataset.id;
+  const team = appData.teams.find((t) => t.id === id);
+  if (!team) return;
+  const newName = input.value.trim();
+  if (!newName) {
+    input.value = team.name;
+    return;
+  }
+  if (appData.teams.some((t) => t.id !== id && t.name.toLowerCase() === newName.toLowerCase())) {
+    alert("Eine Mannschaft mit diesem Namen existiert bereits.");
+    input.value = team.name;
+    return;
+  }
+  const oldName = team.name;
+  team.name = newName;
+  if (oldName !== newName) {
+    appData.materials.forEach((m) => {
+      if (m.mannschaft === oldName) m.mannschaft = newName;
+    });
+  }
+  persist();
+  renderTeams();
+  renderListe();
+  populateMannschaftSelects();
+}
+
+function deleteTeam(id) {
+  const team = appData.teams.find((t) => t.id === id);
+  if (!team) return;
+  const count = appData.materials.filter((m) => m.mannschaft === team.name).length;
+  const msg = count > 0
+    ? `"${team.name}" löschen? ${count} Material-Eintrag/Einträge sind dieser Mannschaft zugeordnet und erscheinen danach unter "Ohne Mannschaft".`
+    : `Mannschaft "${team.name}" wirklich löschen?`;
+  if (!confirm(msg)) return;
+  appData.materials.forEach((m) => {
+    if (m.mannschaft === team.name) m.mannschaft = "";
+  });
+  appData.teams = appData.teams.filter((t) => t.id !== id);
+  persist();
+  renderTeams();
+  renderListe();
+  populateMannschaftSelects();
 }
 
 // ---------- Hinzufügen ----------
@@ -722,11 +856,12 @@ function setupSmartImport() {
       const get = (field) => row.querySelector(`[data-field="${field}"]`).value.trim();
       const name = get("name");
       if (!name) return;
+      const team = resolveTeamByName(get("mannschaft"));
       appData.materials.push({
         id: uuid(),
         name,
         kategorie: get("kategorie"),
-        mannschaft: get("mannschaft"),
+        mannschaft: team ? team.name : "",
         menge: get("menge"),
         einheit: get("einheit"),
         standort: get("standort"),
@@ -737,6 +872,7 @@ function setupSmartImport() {
     if (added > 0) {
       persist();
       renderListe();
+      populateMannschaftSelects();
     }
     document.getElementById("smart-import-input").value = "";
     document.getElementById("smart-import-preview").style.display = "none";
@@ -919,6 +1055,7 @@ async function tryAutoBackupOnStart() {
 window.addEventListener("DOMContentLoaded", () => {
   setupNav();
   setupListeFilters();
+  setupTeamForm();
   setupMaterialForm();
   setupSmartImport();
   setupBackupButtons();
