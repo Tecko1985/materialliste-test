@@ -787,7 +787,7 @@ function setupMaterialForm() {
     if (trikot) {
       const mannschaft = mannschaftSelected;
       const bezeichnung = document.getElementById("mt-bezeichnung").value.trim();
-      const standort = document.getElementById("mt-standort").value.trim();
+      const standort = "";
       const zustand = document.getElementById("mt-zustand").value.trim();
       const numbers = Array.from(document.querySelectorAll('#trikot-number-grid input[type="checkbox"]:checked')).map((c) => c.dataset.num);
       const hosenHatNummern = document.getElementById("chk-hosen-nummern").checked;
@@ -852,7 +852,7 @@ function setupMaterialForm() {
         mannschaft: mannschaftSelected,
         menge: document.getElementById("mb-menge").value,
         einheit: "Stk",
-        standort: document.getElementById("mb-standort").value.trim(),
+        standort: "",
         zustand: document.getElementById("mb-zustand").value.trim()
       });
       addedAny = true;
@@ -865,7 +865,7 @@ function setupMaterialForm() {
         mannschaft: mannschaftSelected,
         menge: document.getElementById("ml-menge").value,
         einheit: "Stk",
-        standort: document.getElementById("ml-standort").value.trim(),
+        standort: "",
         zustand: document.getElementById("ml-zustand").value.trim()
       });
       addedAny = true;
@@ -881,8 +881,8 @@ function setupMaterialForm() {
         kategorie: document.getElementById("m-kategorie").value.trim(),
         mannschaft: mannschaftSelected,
         menge: document.getElementById("m-menge").value,
-        einheit: document.getElementById("m-einheit").value.trim(),
-        standort: document.getElementById("m-standort").value.trim(),
+        einheit: "",
+        standort: "",
         zustand: document.getElementById("m-zustand").value.trim()
       });
       addedAny = true;

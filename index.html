@@ -7,7 +7,7 @@
 <link rel="manifest" href="manifest.json" />
 <meta name="theme-color" content="#1a56a0" />
 <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
-<link rel="stylesheet" href="style.css?v=1.9.2" />
+<link rel="stylesheet" href="style.css?v=1.9.3" />
 </head>
 <body>
 
@@ -176,15 +176,12 @@
             <div class="form-field"><label>Name *</label><input type="text" id="m-name" /></div>
             <div class="form-field"><label>Kategorie</label><input type="text" id="m-kategorie" placeholder="z.B. Bekleidung, Sportgerät" /></div>
             <div class="form-field"><label>Menge</label><input type="number" id="m-menge" min="0" step="1" /></div>
-            <div class="form-field"><label>Einheit</label><input type="text" id="m-einheit" placeholder="z.B. Stk, Set, Paar" /></div>
-            <div class="form-field"><label>Standort</label><input type="text" id="m-standort" placeholder="z.B. Schrank 1, Lager" /></div>
             <div class="form-field"><label>Zustand</label><input type="text" id="m-zustand" placeholder="z.B. Neu, Gut, Defekt" /></div>
           </div>
 
           <!-- Bälle -->
           <div class="form-grid" id="mform-baelle" style="display:none;">
             <div class="form-field"><label>Menge</label><input type="number" id="mb-menge" min="0" step="1" /></div>
-            <div class="form-field"><label>Standort</label><input type="text" id="mb-standort" placeholder="z.B. Schrank 1, Lager" /></div>
             <div class="form-field"><label>Zustand</label><input type="text" id="mb-zustand" placeholder="z.B. Neu, Gut, Defekt" /></div>
           </div>
 
@@ -192,7 +189,6 @@
           <div class="form-grid" id="mform-leibchen" style="display:none;">
             <div class="form-field"><label>Farbe</label><input type="text" id="ml-farbe" placeholder="z.B. Grau, Rot, Gelb" /></div>
             <div class="form-field"><label>Menge</label><input type="number" id="ml-menge" min="0" step="1" /></div>
-            <div class="form-field"><label>Standort</label><input type="text" id="ml-standort" placeholder="z.B. Schrank 1, Lager" /></div>
             <div class="form-field"><label>Zustand</label><input type="text" id="ml-zustand" placeholder="z.B. Neu, Gut, Defekt" /></div>
           </div>
 
@@ -200,7 +196,6 @@
           <div id="mform-trikotsatz" style="display:none;">
             <div class="form-grid">
               <div class="form-field"><label>Bezeichnung</label><input type="text" id="mt-bezeichnung" placeholder="z.B. Blau KD Sports" /></div>
-              <div class="form-field"><label>Standort</label><input type="text" id="mt-standort" placeholder="z.B. Schrank 1, Lager" /></div>
               <div class="form-field"><label>Zustand</label><input type="text" id="mt-zustand" placeholder="z.B. Neu, Gut, Defekt" /></div>
             </div>
             <div class="form-field" style="margin-bottom:14px;">
@@ -320,8 +315,8 @@
   </main>
 </div>
 
-<script src="config.js?v=1.9.2"></script>
-<script src="db.js?v=1.9.2"></script>
-<script src="app.js?v=1.9.2"></script>
+<script src="config.js?v=1.9.3"></script>
+<script src="db.js?v=1.9.3"></script>
+<script src="app.js?v=1.9.3"></script>
 </body>
 </html>

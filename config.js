@@ -1,6 +1,17 @@
-const APP_VERSION = "1.9.2";
+const APP_VERSION = "1.9.3";
 
 const APP_CHANGELOG = [
+  {
+    version: "1.9.3",
+    groups: [
+      {
+        title: "Hinzufügen",
+        items: [
+          "Felder \"Einheit\" und \"Standort\" aus dem Hinzufügen-Formular entfernt (analog zur Materialliste-Ansicht)."
+        ]
+      }
+    ]
+  },
   {
     version: "1.9.2",
     groups: [
