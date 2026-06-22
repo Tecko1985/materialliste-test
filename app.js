@@ -562,7 +562,7 @@ function satzRowHtml(satz) {
   return `
     <details class="satz-group">
       <summary>
-        🎽 ${escapeHtml(satz.label || "Trikotsatz")} <span class="muted">(Satz · ${satz.items.length} Teile)</span>
+        🎽 ${escapeHtml(satz.label || "Trikotsatz")} <span class="muted">(Satz · ${satz.items.length} ${satz.items.length === 1 ? "Teil" : "Teile"})</span>
         <input type="text" class="satz-trainer-input" data-satz-id="${escapeHtml(satz.satzId)}" value="${escapeHtml(trainerValue)}" placeholder="Trainer" />
       </summary>
       <div class="material-edit-row material-edit-header no-trainer">
@@ -1236,6 +1236,7 @@ function setupExcelImport() {
       const sheet = workbook.Sheets[workbook.SheetNames[0]];
       const rows = XLSX.utils.sheet_to_json(sheet, { header: 1, defval: "" });
       const { added, skipped } = importMaterialsFromRows(rows);
+      migrateData(appData);
       persist();
       renderListe();
       if (statusEl) {
