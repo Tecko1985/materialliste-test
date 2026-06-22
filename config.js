@@ -1,6 +1,18 @@
-const APP_VERSION = "1.5";
+const APP_VERSION = "1.6";
 
 const APP_CHANGELOG = [
+  {
+    version: "1.6",
+    groups: [
+      {
+        title: "Materialliste",
+        items: [
+          "Trikotsatz (Trikot, Hose, Stutzen) wird jetzt als ein aufklappbarer Satz angezeigt statt als einzelne Zeilen.",
+          "Im aufklappbaren Satz lassen sich die einzelnen Teile weiterhin separat bearbeiten oder löschen."
+        ]
+      }
+    ]
+  },
   {
     version: "1.5",
     groups: [

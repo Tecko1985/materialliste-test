@@ -41,6 +41,8 @@ function migrateData(data) {
     if (m.einheit === undefined) m.einheit = "";
     if (m.standort === undefined) m.standort = "";
     if (m.zustand === undefined) m.zustand = "";
+    if (m.satzId === undefined) m.satzId = "";
+    if (m.satzLabel === undefined) m.satzLabel = "";
   });
   // Bestehende Freitext-Mannschaften ohne Stammdatensatz automatisch als Mannschaft anlegen
   const existingNames = new Set(data.teams.map((t) => t.name.toLowerCase()));
@@ -478,6 +480,21 @@ function groupByMannschaft(list) {
   return keys.map((key) => ({ mannschaft: key, items: groups.get(key) }));
 }
 
+function buildRenderGroups(items) {
+  const rendered = new Set();
+  const result = [];
+  items.forEach((m) => {
+    if (m.satzId) {
+      if (rendered.has(m.satzId)) return;
+      rendered.add(m.satzId);
+      result.push({ type: "satz", satzId: m.satzId, label: m.satzLabel, items: items.filter((x) => x.satzId === m.satzId) });
+    } else {
+      result.push({ type: "single", material: m });
+    }
+  });
+  return result;
+}
+
 function setupListeFilters() {
   document.getElementById("liste-search-input").addEventListener("input", (e) => {
     listeSearchQuery = e.target.value;
@@ -518,6 +535,18 @@ function materialRowHtml(m) {
   `;
 }
 
+function satzRowHtml(satz) {
+  return `
+    <details class="satz-group">
+      <summary>🎽 ${escapeHtml(satz.label || "Trikotsatz")} <span class="muted">(Satz · ${satz.items.length} Teile)</span></summary>
+      <div class="material-edit-row material-edit-header">
+        <span>Name</span><span>Kategorie</span><span>Mannschaft</span><span>Menge</span><span>Einheit</span><span>Standort</span><span>Zustand</span><span></span>
+      </div>
+      <div class="player-grid">${satz.items.map(materialRowHtml).join("")}</div>
+    </details>
+  `;
+}
+
 function renderListe() {
   populateListeFilters();
   const list = filteredSortedMaterials();
@@ -532,7 +561,7 @@ function renderListe() {
       <div class="material-edit-row material-edit-header">
         <span>Name</span><span>Kategorie</span><span>Mannschaft</span><span>Menge</span><span>Einheit</span><span>Standort</span><span>Zustand</span><span></span>
       </div>
-      <div class="player-grid">${g.items.map(materialRowHtml).join("")}</div>
+      <div class="player-grid">${buildRenderGroups(g.items).map((rg) => rg.type === "satz" ? satzRowHtml(rg) : materialRowHtml(rg.material)).join("")}</div>
     </div>
   `).join("");
 
@@ -722,9 +751,11 @@ function setupMaterialForm() {
       const numbers = Array.from(document.querySelectorAll('#trikot-number-grid input[type="checkbox"]:checked')).map((c) => c.dataset.num);
       const hosen = document.getElementById("mt-hosen").value;
       const stutzen = document.getElementById("mt-stutzen").value;
+      const satzLabel = ["Trikotsatz", bezeichnung].filter(Boolean).join(" ");
+      const satzEntries = [];
 
       if (numbers.length > 0) {
-        appData.materials.push({
+        satzEntries.push({
           id: uuid(),
           name: ["Trikot", bezeichnung].filter(Boolean).join(" "),
           kategorie: "Trikot",
@@ -734,26 +765,29 @@ function setupMaterialForm() {
           standort,
           zustand: [zustand, "Nr. " + numbers.join(", ")].filter(Boolean).join(" / ")
         });
-        addedAny = true;
       }
       if (hosen && Number(hosen) > 0) {
-        appData.materials.push({
+        satzEntries.push({
           id: uuid(), name: ["Hose", bezeichnung].filter(Boolean).join(" "), kategorie: "Hose",
           mannschaft, menge: hosen, einheit: "Stk", standort, zustand
         });
-        addedAny = true;
       }
       if (stutzen && Number(stutzen) > 0) {
-        appData.materials.push({
+        satzEntries.push({
           id: uuid(), name: ["Stutzen", bezeichnung].filter(Boolean).join(" "), kategorie: "Stutzen",
           mannschaft, menge: stutzen, einheit: "Stk", standort, zustand
         });
-        addedAny = true;
       }
-      if (!addedAny) {
+      if (satzEntries.length === 0) {
         alert("Bitte mindestens eine Trikot-Nummer auswählen oder eine Hosen-/Stutzenanzahl eintragen.");
         return;
       }
+      if (satzEntries.length > 1) {
+        const satzId = uuid();
+        satzEntries.forEach((entry) => { entry.satzId = satzId; entry.satzLabel = satzLabel; });
+      }
+      appData.materials.push(...satzEntries);
+      addedAny = true;
     } else if (baelle) {
       appData.materials.push({
         id: uuid(),

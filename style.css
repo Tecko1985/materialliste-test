@@ -166,6 +166,28 @@ table tr:hover td { background: var(--gray); }
   .material-edit-row.with-checkbox { grid-template-columns: auto 1fr 1fr; }
 }
 
+.satz-group {
+  border: 1px solid var(--gold);
+  border-radius: 8px;
+  padding: 8px 10px;
+  background: var(--gold-light);
+  margin-bottom: 8px;
+}
+.satz-group summary {
+  cursor: pointer;
+  list-style: none;
+  outline: none;
+  font-weight: 700;
+  color: var(--blue);
+  padding: 4px 0;
+}
+.satz-group summary::-webkit-details-marker { display: none; }
+.satz-group summary::before { content: "▸ "; color: var(--gold); }
+.satz-group[open] summary::before { content: "▾ "; }
+.satz-group .material-edit-header { margin-top: 8px; }
+.satz-group .player-grid { margin-top: 6px; }
+.satz-group .material-edit-row { background: var(--white); }
+
 .material-group { margin-bottom: 22px; }
 .material-group:last-child { margin-bottom: 0; }
 .material-group-title {
