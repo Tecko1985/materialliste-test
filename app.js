@@ -10,6 +10,7 @@ let saveTimer = null;
 let listeSearchQuery = "";
 let listeKategorieFilter = "";
 let listeStandortFilter = "";
+let listeMannschaftFilter = "";
 let listeSortOrder = "name-asc";
 
 function uuid() {
@@ -34,6 +35,7 @@ function migrateData(data) {
     if (m.id === undefined) m.id = uuid();
     if (m.name === undefined) m.name = "";
     if (m.kategorie === undefined) m.kategorie = "";
+    if (m.mannschaft === undefined) m.mannschaft = "";
     if (m.menge === undefined) m.menge = "";
     if (m.einheit === undefined) m.einheit = "";
     if (m.standort === undefined) m.standort = "";
@@ -364,14 +366,19 @@ function uniqueValues(field) {
 function populateListeFilters() {
   const kategorieSelect = document.getElementById("liste-kategorie-filter");
   const standortSelect = document.getElementById("liste-standort-filter");
+  const mannschaftSelect = document.getElementById("liste-mannschaft-filter");
   const prevKategorie = kategorieSelect.value;
   const prevStandort = standortSelect.value;
+  const prevMannschaft = mannschaftSelect.value;
   kategorieSelect.innerHTML = '<option value="">Alle Kategorien</option>' +
     uniqueValues("kategorie").map((k) => `<option value="${escapeHtml(k)}">${escapeHtml(k)}</option>`).join("");
   standortSelect.innerHTML = '<option value="">Alle Standorte</option>' +
     uniqueValues("standort").map((s) => `<option value="${escapeHtml(s)}">${escapeHtml(s)}</option>`).join("");
+  mannschaftSelect.innerHTML = '<option value="">Alle Mannschaften</option>' +
+    uniqueValues("mannschaft").map((s) => `<option value="${escapeHtml(s)}">${escapeHtml(s)}</option>`).join("");
   kategorieSelect.value = prevKategorie;
   standortSelect.value = prevStandort;
+  mannschaftSelect.value = prevMannschaft;
 }
 
 function filteredSortedMaterials() {
@@ -382,6 +389,7 @@ function filteredSortedMaterials() {
   }
   if (listeKategorieFilter) list = list.filter((m) => m.kategorie === listeKategorieFilter);
   if (listeStandortFilter) list = list.filter((m) => m.standort === listeStandortFilter);
+  if (listeMannschaftFilter) list = list.filter((m) => m.mannschaft === listeMannschaftFilter);
   list.sort((a, b) => {
     if (listeSortOrder === "name-asc") return (a.name || "").localeCompare(b.name || "", "de");
     if (listeSortOrder === "name-desc") return (b.name || "").localeCompare(a.name || "", "de");
@@ -390,6 +398,21 @@ function filteredSortedMaterials() {
     return 0;
   });
   return list;
+}
+
+function groupByMannschaft(list) {
+  const groups = new Map();
+  list.forEach((m) => {
+    const key = m.mannschaft || "";
+    if (!groups.has(key)) groups.set(key, []);
+    groups.get(key).push(m);
+  });
+  const keys = [...groups.keys()].sort((a, b) => {
+    if (!a && b) return 1;
+    if (a && !b) return -1;
+    return a.localeCompare(b, "de");
+  });
+  return keys.map((key) => ({ mannschaft: key, items: groups.get(key) }));
 }
 
 function setupListeFilters() {
@@ -405,22 +428,22 @@ function setupListeFilters() {
     listeStandortFilter = e.target.value;
     renderListe();
   });
+  document.getElementById("liste-mannschaft-filter").addEventListener("change", (e) => {
+    listeMannschaftFilter = e.target.value;
+    renderListe();
+  });
   document.getElementById("liste-sort-select").addEventListener("change", (e) => {
     listeSortOrder = e.target.value;
     renderListe();
   });
 }
 
-function renderListe() {
-  populateListeFilters();
-  const list = filteredSortedMaterials();
-  const container = document.getElementById("liste-list");
-  const empty = document.getElementById("liste-empty");
-  empty.style.display = appData.materials.length === 0 ? "block" : "none";
-  container.innerHTML = list.map((m) => `
+function materialRowHtml(m) {
+  return `
     <div class="material-edit-row" data-id="${m.id}">
       <input type="text" data-field="name" value="${escapeHtml(m.name)}" />
       <input type="text" data-field="kategorie" value="${escapeHtml(m.kategorie)}" />
+      <input type="text" data-field="mannschaft" value="${escapeHtml(m.mannschaft)}" />
       <input type="number" data-field="menge" value="${escapeHtml(m.menge)}" />
       <input type="text" data-field="einheit" value="${escapeHtml(m.einheit)}" />
       <input type="text" data-field="standort" value="${escapeHtml(m.standort)}" />
@@ -428,6 +451,25 @@ function renderListe() {
       <div class="row-actions">
         <button class="btn danger small" data-action="delete">Löschen</button>
       </div>
+    </div>
+  `;
+}
+
+function renderListe() {
+  populateListeFilters();
+  const list = filteredSortedMaterials();
+  const container = document.getElementById("liste-groups");
+  const empty = document.getElementById("liste-empty");
+  empty.style.display = appData.materials.length === 0 ? "block" : "none";
+
+  const groups = groupByMannschaft(list);
+  container.innerHTML = groups.map((g) => `
+    <div class="material-group">
+      <div class="material-group-title">${escapeHtml(g.mannschaft || "Ohne Mannschaft")} (${g.items.length})</div>
+      <div class="material-edit-row material-edit-header">
+        <span>Name</span><span>Kategorie</span><span>Mannschaft</span><span>Menge</span><span>Einheit</span><span>Standort</span><span>Zustand</span><span></span>
+      </div>
+      <div class="player-grid">${g.items.map(materialRowHtml).join("")}</div>
     </div>
   `).join("");
 
@@ -471,6 +513,7 @@ function setupMaterialForm() {
       id: uuid(),
       name,
       kategorie: document.getElementById("m-kategorie").value.trim(),
+      mannschaft: document.getElementById("m-mannschaft").value.trim(),
       menge: document.getElementById("m-menge").value,
       einheit: document.getElementById("m-einheit").value.trim(),
       standort: document.getElementById("m-standort").value.trim(),
@@ -504,7 +547,7 @@ function parseSmartImport(text) {
   const lines = text.split(/\r?\n/).map((l) => l.trim()).filter((l) => l.length > 0);
   const items = [];
   const unrecognized = [];
-  let teamContext = "";
+  let mannschaftContext = "";
   let currentSatz = null; // { farbe, label }
   let mode = "normal"; // "normal" | "leibchen"
 
@@ -512,9 +555,10 @@ function parseSmartImport(text) {
     items.push({
       name: partial.name || "",
       kategorie: partial.kategorie || "",
+      mannschaft: partial.mannschaft !== undefined ? partial.mannschaft : mannschaftContext,
       menge: partial.menge !== undefined ? String(partial.menge) : "",
       einheit: partial.einheit || "Stk",
-      standort: partial.standort !== undefined ? partial.standort : teamContext,
+      standort: partial.standort || "",
       zustand: partial.zustand || ""
     });
   }
@@ -537,7 +581,7 @@ function parseSmartImport(text) {
         kategorie: cells[1],
         menge: cells[2],
         einheit: cells[3],
-        standort: cells[4] !== undefined && cells[4] !== "" ? cells[4] : teamContext,
+        standort: cells[4],
         zustand: cells[5]
       });
       return;
@@ -546,7 +590,7 @@ function parseSmartImport(text) {
     // "<Kategorie> bestand <Kontext>" Kopfzeile, z.B. "Trikot bestand U19"
     let m = line.match(/^(.*?)\s*bestand\s*(.*)$/i);
     if (m) {
-      teamContext = m[2].trim() || teamContext;
+      mannschaftContext = m[2].trim() || mannschaftContext;
       currentSatz = null;
       mode = "normal";
       return;
@@ -648,6 +692,7 @@ function renderSmartImportPreview(parsed) {
       <input type="checkbox" checked />
       <input type="text" data-field="name" value="${escapeHtml(item.name)}" />
       <input type="text" data-field="kategorie" value="${escapeHtml(item.kategorie)}" />
+      <input type="text" data-field="mannschaft" value="${escapeHtml(item.mannschaft)}" />
       <input type="number" data-field="menge" value="${escapeHtml(item.menge)}" />
       <input type="text" data-field="einheit" value="${escapeHtml(item.einheit)}" />
       <input type="text" data-field="standort" value="${escapeHtml(item.standort)}" />
@@ -681,6 +726,7 @@ function setupSmartImport() {
         id: uuid(),
         name,
         kategorie: get("kategorie"),
+        mannschaft: get("mannschaft"),
         menge: get("menge"),
         einheit: get("einheit"),
         standort: get("standort"),

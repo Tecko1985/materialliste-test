@@ -96,6 +96,10 @@
             <input type="text" id="liste-search-input" placeholder="Name…" />
           </div>
           <div class="form-field" style="max-width:220px;">
+            <label>Mannschaft</label>
+            <select id="liste-mannschaft-filter"><option value="">Alle Mannschaften</option></select>
+          </div>
+          <div class="form-field" style="max-width:220px;">
             <label>Kategorie</label>
             <select id="liste-kategorie-filter"><option value="">Alle Kategorien</option></select>
           </div>
@@ -113,12 +117,9 @@
             </select>
           </div>
         </div>
-        <p class="muted" style="margin-bottom:10px;">Felder direkt anklicken und bearbeiten – die Änderung wird beim Verlassen des Feldes übernommen.</p>
+        <p class="muted" style="margin-bottom:10px;">Gruppiert nach Mannschaft. Felder direkt anklicken und bearbeiten – die Änderung wird beim Verlassen des Feldes übernommen.</p>
         <div class="empty-state" id="liste-empty" style="display:none;">Noch kein Material angelegt. Wechsle zu "Hinzufügen".</div>
-        <div class="material-edit-row material-edit-header">
-          <span>Name</span><span>Kategorie</span><span>Menge</span><span>Einheit</span><span>Standort</span><span>Zustand</span><span></span>
-        </div>
-        <div class="player-grid" id="liste-list"></div>
+        <div id="liste-groups"></div>
       </div>
     </section>
 
@@ -130,6 +131,7 @@
           <div class="form-grid">
             <div class="form-field"><label>Name *</label><input type="text" id="m-name" required /></div>
             <div class="form-field"><label>Kategorie</label><input type="text" id="m-kategorie" placeholder="z.B. Bekleidung, Sportgerät" /></div>
+            <div class="form-field"><label>Mannschaft</label><input type="text" id="m-mannschaft" placeholder="z.B. U19, D-Jugend" /></div>
             <div class="form-field"><label>Menge</label><input type="number" id="m-menge" min="0" step="1" /></div>
             <div class="form-field"><label>Einheit</label><input type="text" id="m-einheit" placeholder="z.B. Stk, Set, Paar" /></div>
             <div class="form-field"><label>Standort</label><input type="text" id="m-standort" placeholder="z.B. Schrank 1, Lager" /></div>
@@ -157,7 +159,7 @@
             Entwurf prüfen und bei Bedarf direkt in den Feldern anpassen. Zeilen abwählen, um sie nicht zu übernehmen.
           </p>
           <div class="material-edit-row material-edit-header with-checkbox">
-            <span></span><span>Name</span><span>Kategorie</span><span>Menge</span><span>Einheit</span><span>Standort</span><span>Zustand</span>
+            <span></span><span>Name</span><span>Kategorie</span><span>Mannschaft</span><span>Menge</span><span>Einheit</span><span>Standort</span><span>Zustand</span>
           </div>
           <div class="player-grid" id="smart-import-rows"></div>
           <p class="muted" id="smart-import-unrecognized" style="margin-top:10px;"></p>
