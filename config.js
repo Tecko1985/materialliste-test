@@ -1,6 +1,18 @@
-const APP_VERSION = "1.9.4";
+const APP_VERSION = "1.9.5";
 
 const APP_CHANGELOG = [
+  {
+    version: "1.9.5",
+    groups: [
+      {
+        title: "Nextcloud-Verbindung",
+        items: [
+          "Neues optionales Feld \"CORS-Proxy-URL\" beim Verbinden mit Nextcloud – nötig, falls der Server keine CORS-Zugriffe vom Browser aus erlaubt (z.B. bei manchen gehosteten Nextcloud-Anbietern).",
+          "Beigelegter Cloudflare-Worker-Code (cors-proxy-worker.js) zum selbst Hosten eines kostenlosen CORS-Proxys."
+        ]
+      }
+    ]
+  },
   {
     version: "1.9.4",
     groups: [

@@ -93,8 +93,15 @@ function davAuthHeader(config) {
   return "Basic " + btoa(unescape(encodeURIComponent(config.username + ":" + config.password)));
 }
 
+function davRequestUrl(config) {
+  if (config.proxyUrl) {
+    return config.proxyUrl.replace(/\/$/, "") + "/?url=" + encodeURIComponent(config.url);
+  }
+  return config.url;
+}
+
 async function davReadFile(config) {
-  const resp = await fetch(config.url, {
+  const resp = await fetch(davRequestUrl(config), {
     method: "GET",
     headers: { Authorization: davAuthHeader(config) }
   });
@@ -106,7 +113,7 @@ async function davReadFile(config) {
 }
 
 async function davWriteFile(config, dataObj) {
-  const resp = await fetch(config.url, {
+  const resp = await fetch(davRequestUrl(config), {
     method: "PUT",
     headers: {
       Authorization: davAuthHeader(config),

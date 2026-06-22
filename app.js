@@ -159,6 +159,7 @@ async function init() {
         console.error("WebDAV-Verbindung fehlgeschlagen", e);
         document.getElementById("webdav-url").value = config.url;
         document.getElementById("webdav-username").value = config.username;
+        document.getElementById("webdav-proxy-url").value = config.proxyUrl || "";
         showWebdavError("Verbindung zu Nextcloud fehlgeschlagen: " + e.message + ". Bitte Zugangsdaten prüfen und erneut verbinden.");
         showConnectScreen(false);
         return;
@@ -187,8 +188,9 @@ async function handleWebdavConnectSubmit(e) {
   const url = document.getElementById("webdav-url").value.trim();
   const username = document.getElementById("webdav-username").value.trim();
   const password = document.getElementById("webdav-password").value;
+  const proxyUrl = document.getElementById("webdav-proxy-url").value.trim();
   if (!url || !username || !password) return;
-  await connectWebdav({ url, username, password });
+  await connectWebdav({ url, username, password, proxyUrl });
 }
 
 async function connectWebdav(config) {

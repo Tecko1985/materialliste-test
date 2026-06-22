@@ -7,7 +7,7 @@
 <link rel="manifest" href="manifest.json" />
 <meta name="theme-color" content="#1a56a0" />
 <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
-<link rel="stylesheet" href="style.css?v=1.9.4" />
+<link rel="stylesheet" href="style.css?v=1.9.5" />
 </head>
 <body>
 
@@ -51,7 +51,8 @@
     <p class="muted" style="margin-bottom:14px;">
       Lädt/speichert die Datei direkt über die Nextcloud-WebDAV-Adresse – ohne lokalen Datei-Picker.
       Benötigt ein <strong>App-Passwort</strong> (Nextcloud → Einstellungen → Sicherheit → Neues App-Passwort erzeugen),
-      nicht dein normales Passwort. Der Nextcloud-Server muss CORS-Zugriffe von dieser Seite erlauben.
+      nicht dein normales Passwort. Der Nextcloud-Server muss CORS-Zugriffe von dieser Seite erlauben – falls nicht,
+      trage unten zusätzlich eine Proxy-URL ein.
     </p>
     <form id="webdav-connect-form">
       <div class="form-grid">
@@ -66,6 +67,10 @@
         <div class="form-field">
           <label>App-Passwort *</label>
           <input type="password" id="webdav-password" required />
+        </div>
+        <div class="form-field" style="flex:2; min-width:260px;">
+          <label>CORS-Proxy-URL (optional, nur falls Server CORS blockiert)</label>
+          <input type="url" id="webdav-proxy-url" placeholder="https://dein-proxy.workers.dev" />
         </div>
       </div>
       <p class="muted" id="webdav-error" style="display:none; color:#c0392b; margin-bottom:10px;"></p>
@@ -319,8 +324,8 @@
   </main>
 </div>
 
-<script src="config.js?v=1.9.4"></script>
-<script src="db.js?v=1.9.4"></script>
-<script src="app.js?v=1.9.4"></script>
+<script src="config.js?v=1.9.5"></script>
+<script src="db.js?v=1.9.5"></script>
+<script src="app.js?v=1.9.5"></script>
 </body>
 </html>
