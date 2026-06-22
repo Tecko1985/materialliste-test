@@ -483,32 +483,219 @@ function setupMaterialForm() {
   });
 }
 
-// ---------- Mehrere Zeilen einfügen ----------
+// ---------- Text-Import (automatische Erkennung) ----------
 
-function parseBulkPaste(text) {
-  const lines = text.split(/\r?\n/).map((l) => l.trim()).filter((l) => l.length > 0);
-  let added = 0;
-  lines.forEach((line) => {
-    const cells = line.includes("\t") ? line.split("\t") : line.split(",");
-    const [name, kategorie = "", menge = "", einheit = "", standort = "", zustand = ""] = cells.map((c) => c.trim());
-    if (!name) return;
-    appData.materials.push({ id: uuid(), name, kategorie, menge, einheit, standort, zustand });
-    added++;
-  });
-  return added;
+const COLOR_WORDS = [
+  "blau", "rot", "gelb", "grün", "grun", "grau", "schwarz", "weiß", "weiss",
+  "orange", "lila", "pink", "türkis", "tuerkis", "bordeaux", "navy", "violett",
+  "braun", "hellblau", "dunkelblau"
+];
+
+function capWord(s) {
+  if (!s) return s;
+  return s.charAt(0).toUpperCase() + s.slice(1).toLowerCase();
 }
 
-function setupBulkImport() {
-  document.getElementById("btn-bulk-import").addEventListener("click", () => {
-    const textarea = document.getElementById("bulk-paste-input");
-    const statusEl = document.getElementById("bulk-import-status");
-    const added = parseBulkPaste(textarea.value);
+function isColorWord(w) {
+  return COLOR_WORDS.includes(String(w || "").toLowerCase());
+}
+
+function parseSmartImport(text) {
+  const lines = text.split(/\r?\n/).map((l) => l.trim()).filter((l) => l.length > 0);
+  const items = [];
+  const unrecognized = [];
+  let teamContext = "";
+  let currentSatz = null; // { farbe, label }
+  let mode = "normal"; // "normal" | "leibchen"
+
+  function pushItem(partial) {
+    items.push({
+      name: partial.name || "",
+      kategorie: partial.kategorie || "",
+      menge: partial.menge !== undefined ? String(partial.menge) : "",
+      einheit: partial.einheit || "Stk",
+      standort: partial.standort !== undefined ? partial.standort : teamContext,
+      zustand: partial.zustand || ""
+    });
+  }
+
+  function buildSatzItem(teilName, menge) {
+    return {
+      name: [capWord(teilName), currentSatz ? currentSatz.farbe : ""].filter(Boolean).join(" "),
+      kategorie: capWord(teilName),
+      menge,
+      zustand: currentSatz ? currentSatz.label : ""
+    };
+  }
+
+  lines.forEach((line) => {
+    // Tab-getrennte Zeile (klassischer Excel-Paste): direkte Spaltenzuordnung
+    if (line.includes("\t")) {
+      const cells = line.split("\t").map((c) => c.trim());
+      pushItem({
+        name: cells[0],
+        kategorie: cells[1],
+        menge: cells[2],
+        einheit: cells[3],
+        standort: cells[4] !== undefined && cells[4] !== "" ? cells[4] : teamContext,
+        zustand: cells[5]
+      });
+      return;
+    }
+
+    // "<Kategorie> bestand <Kontext>" Kopfzeile, z.B. "Trikot bestand U19"
+    let m = line.match(/^(.*?)\s*bestand\s*(.*)$/i);
+    if (m) {
+      teamContext = m[2].trim() || teamContext;
+      currentSatz = null;
+      mode = "normal";
+      return;
+    }
+
+    // Explizite "Leibchen" Kopfzeile
+    if (/^leibchen$/i.test(line)) {
+      mode = "leibchen";
+      currentSatz = null;
+      return;
+    }
+
+    // "Keine <Teil>" -> Menge 0
+    m = line.match(/^keine\s+(.+)$/i);
+    if (m) {
+      pushItem(buildSatzItem(m[1].trim(), 0));
+      return;
+    }
+
+    // Reine Nummernliste (z.B. Trikotnummern), durch Komma getrennt
+    const commaTokens = line.split(",").map((t) => t.trim()).filter((t) => t.length > 0);
+    if (commaTokens.length >= 2 && commaTokens.every((t) => /^\d+$/.test(t))) {
+      pushItem({
+        name: ["Trikot", currentSatz ? currentSatz.farbe : "", currentSatz ? currentSatz.label : ""].filter(Boolean).join(" "),
+        kategorie: "Trikot",
+        menge: commaTokens.length,
+        zustand: "Nr. " + commaTokens.join(", ")
+      });
+      return;
+    }
+
+    // "<Nr> TW <Menge> x <Farben>", z.B. "22 TW 2 x orange und schwarz"
+    m = line.match(/^(\d+)\s*tw\s*(\d+)\s*x\s*(.+)$/i);
+    if (m) {
+      pushItem({
+        name: ["TW-Trikot", currentSatz ? currentSatz.farbe : "", currentSatz ? currentSatz.label : ""].filter(Boolean).join(" "),
+        kategorie: "Torwart",
+        menge: m[2],
+        zustand: `${m[3].trim()} (Nr. ${m[1]})`
+      });
+      return;
+    }
+
+    // "<Menge> TW Hose + Stutzen <Farbe>"
+    m = line.match(/^(\d+)\s*tw\s*hose\s*\+\s*stutzen\s*(.+)$/i);
+    if (m) {
+      pushItem({ name: ["TW-Hose", currentSatz ? currentSatz.farbe : ""].filter(Boolean).join(" "), kategorie: "Torwart", menge: m[1], zustand: currentSatz ? currentSatz.label : "" });
+      pushItem({ name: "TW-Stutzen " + capWord(m[2].trim()), kategorie: "Torwart", menge: m[1], zustand: currentSatz ? currentSatz.label : "" });
+      return;
+    }
+
+    // Farb-Kopfzeile für einen neuen Satz, z.B. "Blau KD Sports (Ausweichsatz)"
+    const firstWord = line.split(/\s+/)[0];
+    if (isColorWord(firstWord) && !/^\d/.test(line)) {
+      currentSatz = { farbe: capWord(firstWord), label: line.slice(firstWord.length).trim() };
+      mode = "normal";
+      return;
+    }
+
+    // Generische Mengenangabe "<Zahl> [x] <Rest>"
+    m = line.match(/^(\d+)\s*x?\.?\s*(.+)$/i);
+    if (m) {
+      const n = m[1];
+      const rest = m[2].trim();
+      if (mode === "leibchen") {
+        pushItem({ name: "Leibchen " + capWord(rest), kategorie: "Leibchen", menge: n });
+      } else if (/h[oö]sen?/i.test(rest)) {
+        pushItem(buildSatzItem("Hose", n));
+      } else if (/stutzen/i.test(rest)) {
+        pushItem(buildSatzItem("Stutzen", n));
+      } else if (/trikots?/i.test(rest)) {
+        pushItem(buildSatzItem("Trikot", n));
+      } else if (/b[aä]lle|ball/i.test(rest)) {
+        pushItem({ name: "Bälle", kategorie: "Sportgerät", menge: n });
+      } else if (/leibchen/i.test(rest)) {
+        pushItem({ name: rest, kategorie: "Leibchen", menge: n });
+      } else {
+        pushItem(buildSatzItem(rest, n));
+      }
+      return;
+    }
+
+    unrecognized.push(line);
+  });
+
+  return { items, unrecognized };
+}
+
+let smartImportRows = [];
+
+function renderSmartImportPreview(parsed) {
+  smartImportRows = parsed.items;
+  const preview = document.getElementById("smart-import-preview");
+  const container = document.getElementById("smart-import-rows");
+  const unrecognizedEl = document.getElementById("smart-import-unrecognized");
+  preview.style.display = smartImportRows.length > 0 ? "block" : "none";
+  container.innerHTML = smartImportRows.map((item, idx) => `
+    <div class="material-edit-row with-checkbox" data-index="${idx}">
+      <input type="checkbox" checked />
+      <input type="text" data-field="name" value="${escapeHtml(item.name)}" />
+      <input type="text" data-field="kategorie" value="${escapeHtml(item.kategorie)}" />
+      <input type="number" data-field="menge" value="${escapeHtml(item.menge)}" />
+      <input type="text" data-field="einheit" value="${escapeHtml(item.einheit)}" />
+      <input type="text" data-field="standort" value="${escapeHtml(item.standort)}" />
+      <input type="text" data-field="zustand" value="${escapeHtml(item.zustand)}" />
+    </div>
+  `).join("");
+  if (parsed.unrecognized.length > 0) {
+    unrecognizedEl.textContent = `${parsed.unrecognized.length} Zeile(n) nicht erkannt und nicht übernommen: ` + parsed.unrecognized.join(" / ");
+  } else {
+    unrecognizedEl.textContent = "";
+  }
+}
+
+function setupSmartImport() {
+  document.getElementById("btn-smart-analyze").addEventListener("click", () => {
+    const text = document.getElementById("smart-import-input").value;
+    const parsed = parseSmartImport(text);
+    renderSmartImportPreview(parsed);
+  });
+
+  document.getElementById("btn-smart-commit").addEventListener("click", () => {
+    const rows = document.querySelectorAll("#smart-import-rows .material-edit-row");
+    let added = 0;
+    rows.forEach((row) => {
+      const checkbox = row.querySelector('input[type="checkbox"]');
+      if (!checkbox.checked) return;
+      const get = (field) => row.querySelector(`[data-field="${field}"]`).value.trim();
+      const name = get("name");
+      if (!name) return;
+      appData.materials.push({
+        id: uuid(),
+        name,
+        kategorie: get("kategorie"),
+        menge: get("menge"),
+        einheit: get("einheit"),
+        standort: get("standort"),
+        zustand: get("zustand")
+      });
+      added++;
+    });
     if (added > 0) {
       persist();
       renderListe();
-      textarea.value = "";
     }
-    statusEl.textContent = added > 0 ? `${added} Eintrag/Einträge hinzugefügt.` : "Keine gültigen Zeilen gefunden.";
+    document.getElementById("smart-import-input").value = "";
+    document.getElementById("smart-import-preview").style.display = "none";
+    document.getElementById("smart-import-rows").innerHTML = "";
+    document.getElementById("smart-import-unrecognized").textContent = "";
   });
 }
 
@@ -687,7 +874,7 @@ window.addEventListener("DOMContentLoaded", () => {
   setupNav();
   setupListeFilters();
   setupMaterialForm();
-  setupBulkImport();
+  setupSmartImport();
   setupBackupButtons();
   setupBackupFolder();
   setupExcelImport();

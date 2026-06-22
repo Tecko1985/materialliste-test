@@ -140,17 +140,31 @@
       </div>
 
       <div class="card">
-        <h2>Mehrere Zeilen einfügen</h2>
+        <h2>Text-Import (automatische Erkennung)</h2>
         <p class="muted" style="margin-bottom:10px;">
-          Kopiere mehrere Zeilen aus Excel (oder tippe sie ein) und füge sie hier ein – je Zeile:
-          <strong>Name, Kategorie, Menge, Einheit, Standort, Zustand</strong> (getrennt durch Tab oder Komma).
-          Fehlende Spalten am Ende dürfen weggelassen werden.
+          Füge beliebige Notizen oder Listen ein – z.B. Satz-Überschriften wie "Blau KD Sports", Mengenangaben wie
+          "9 Hosen" oder "13 x Stutzen", durch Komma getrennte Trikotnummern, "Keine Stutzen" oder Leibchen-Farben
+          wie "4 x Grau". Auch klassische Tab-getrennte Excel-Zeilen werden erkannt. Klicke auf "Analysieren" – das
+          Tool erstellt daraus einen Entwurf, den du vor der Übernahme noch prüfen und anpassen kannst.
         </p>
-        <textarea id="bulk-paste-input" rows="6" placeholder="Trikot Set A&#9;Bekleidung&#9;15&#9;Stk&#9;Schrank1&#9;Gut"></textarea>
+        <textarea id="smart-import-input" rows="12" placeholder="Trikot bestand U19&#10;&#10;Blau KD Sports (Ausweichsatz)&#10;9 Hosen&#10;1, 8, 11, 12, 5, 6, 7&#10;Keine Stutzen"></textarea>
         <div class="btn-row" style="justify-content:flex-start; margin-top:10px;">
-          <button class="btn secondary" id="btn-bulk-import" type="button">Einlesen</button>
+          <button class="btn secondary" id="btn-smart-analyze" type="button">Analysieren</button>
         </div>
-        <p class="muted" id="bulk-import-status" style="margin-top:10px;"></p>
+
+        <div id="smart-import-preview" style="display:none; margin-top:18px;">
+          <p class="muted" style="margin-bottom:10px;">
+            Entwurf prüfen und bei Bedarf direkt in den Feldern anpassen. Zeilen abwählen, um sie nicht zu übernehmen.
+          </p>
+          <div class="material-edit-row material-edit-header with-checkbox">
+            <span></span><span>Name</span><span>Kategorie</span><span>Menge</span><span>Einheit</span><span>Standort</span><span>Zustand</span>
+          </div>
+          <div class="player-grid" id="smart-import-rows"></div>
+          <p class="muted" id="smart-import-unrecognized" style="margin-top:10px;"></p>
+          <div class="btn-row" style="justify-content:flex-start; margin-top:14px;">
+            <button class="btn success" id="btn-smart-commit" type="button">Ausgewählte übernehmen</button>
+          </div>
+        </div>
       </div>
     </section>
 
