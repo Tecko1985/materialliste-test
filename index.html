@@ -7,7 +7,7 @@
 <link rel="manifest" href="manifest.json" />
 <meta name="theme-color" content="#1a56a0" />
 <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
-<link rel="stylesheet" href="style.css?v=1.1" />
+<link rel="stylesheet" href="style.css?v=1.2" />
 </head>
 <body>
 
@@ -80,9 +80,9 @@
 <div id="app-shell" style="display:none;">
   <nav>
     <button data-tab="liste" class="active">Materialliste</button>
-    <button data-tab="mannschaften">Mannschaften</button>
     <button data-tab="hinzufuegen">Hinzufügen</button>
-    <button data-tab="einstellungen" style="margin-left:auto;">Einstellungen</button>
+    <button data-tab="mannschaften" style="margin-left:auto;">Mannschaften</button>
+    <button data-tab="einstellungen">Einstellungen</button>
   </nav>
 
   <main>
@@ -167,31 +167,33 @@
       </div>
 
       <div class="card">
-        <h2>Text-Import (automatische Erkennung)</h2>
-        <p class="muted" style="margin-bottom:10px;">
-          Füge beliebige Notizen oder Listen ein – z.B. Satz-Überschriften wie "Blau KD Sports", Mengenangaben wie
-          "9 Hosen" oder "13 x Stutzen", durch Komma getrennte Trikotnummern, "Keine Stutzen" oder Leibchen-Farben
-          wie "4 x Grau". Auch klassische Tab-getrennte Excel-Zeilen werden erkannt. Klicke auf "Analysieren" – das
-          Tool erstellt daraus einen Entwurf, den du vor der Übernahme noch prüfen und anpassen kannst.
-        </p>
-        <textarea id="smart-import-input" rows="12" placeholder="Trikot bestand U19&#10;&#10;Blau KD Sports (Ausweichsatz)&#10;9 Hosen&#10;1, 8, 11, 12, 5, 6, 7&#10;Keine Stutzen"></textarea>
-        <div class="btn-row" style="justify-content:flex-start; margin-top:10px;">
-          <button class="btn secondary" id="btn-smart-analyze" type="button">Analysieren</button>
-        </div>
-
-        <div id="smart-import-preview" style="display:none; margin-top:18px;">
-          <p class="muted" style="margin-bottom:10px;">
-            Entwurf prüfen und bei Bedarf direkt in den Feldern anpassen. Zeilen abwählen, um sie nicht zu übernehmen.
+        <details id="smart-import-details">
+          <summary><h2 style="display:inline;">Text-Import (automatische Erkennung)</h2></summary>
+          <p class="muted" style="margin:10px 0;">
+            Füge beliebige Notizen oder Listen ein – z.B. Satz-Überschriften wie "Blau KD Sports", Mengenangaben wie
+            "9 Hosen" oder "13 x Stutzen", durch Komma getrennte Trikotnummern, "Keine Stutzen" oder Leibchen-Farben
+            wie "4 x Grau". Auch klassische Tab-getrennte Excel-Zeilen werden erkannt. Klicke auf "Analysieren" – das
+            Tool erstellt daraus einen Entwurf, den du vor der Übernahme noch prüfen und anpassen kannst.
           </p>
-          <div class="material-edit-row material-edit-header with-checkbox">
-            <span></span><span>Name</span><span>Kategorie</span><span>Mannschaft</span><span>Menge</span><span>Einheit</span><span>Standort</span><span>Zustand</span>
+          <textarea id="smart-import-input" rows="12" placeholder="Trikot bestand U19&#10;&#10;Blau KD Sports (Ausweichsatz)&#10;9 Hosen&#10;1, 8, 11, 12, 5, 6, 7&#10;Keine Stutzen"></textarea>
+          <div class="btn-row" style="justify-content:flex-start; margin-top:10px;">
+            <button class="btn secondary" id="btn-smart-analyze" type="button">Analysieren</button>
           </div>
-          <div class="player-grid" id="smart-import-rows"></div>
-          <p class="muted" id="smart-import-unrecognized" style="margin-top:10px;"></p>
-          <div class="btn-row" style="justify-content:flex-start; margin-top:14px;">
-            <button class="btn success" id="btn-smart-commit" type="button">Ausgewählte übernehmen</button>
+
+          <div id="smart-import-preview" style="display:none; margin-top:18px;">
+            <p class="muted" style="margin-bottom:10px;">
+              Entwurf prüfen und bei Bedarf direkt in den Feldern anpassen. Zeilen abwählen, um sie nicht zu übernehmen.
+            </p>
+            <div class="material-edit-row material-edit-header with-checkbox">
+              <span></span><span>Name</span><span>Kategorie</span><span>Mannschaft</span><span>Menge</span><span>Einheit</span><span>Standort</span><span>Zustand</span>
+            </div>
+            <div class="player-grid" id="smart-import-rows"></div>
+            <p class="muted" id="smart-import-unrecognized" style="margin-top:10px;"></p>
+            <div class="btn-row" style="justify-content:flex-start; margin-top:14px;">
+              <button class="btn success" id="btn-smart-commit" type="button">Ausgewählte übernehmen</button>
+            </div>
           </div>
-        </div>
+        </details>
       </div>
     </section>
 
@@ -258,8 +260,8 @@
   </main>
 </div>
 
-<script src="config.js?v=1.1"></script>
-<script src="db.js?v=1.1"></script>
-<script src="app.js?v=1.1"></script>
+<script src="config.js?v=1.2"></script>
+<script src="db.js?v=1.2"></script>
+<script src="app.js?v=1.2"></script>
 </body>
 </html>

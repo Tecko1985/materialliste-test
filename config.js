@@ -1,6 +1,18 @@
-const APP_VERSION = "1.1";
+const APP_VERSION = "1.2";
 
 const APP_CHANGELOG = [
+  {
+    version: "1.2",
+    groups: [
+      {
+        title: "Bedienung",
+        items: [
+          "Text-Import in \"Hinzufügen\" ist jetzt aufklappbar (eingeklappt standardmäßig).",
+          "Mannschaften-Tab in der Navigation nach rechts neben Einstellungen verschoben."
+        ]
+      }
+    ]
+  },
   {
     version: "1.1",
     groups: [

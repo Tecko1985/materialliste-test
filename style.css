@@ -228,5 +228,19 @@ table tr:hover td { background: var(--gray); }
 .changelog-group .cg-title { font-weight: 700; font-size: 14px; color: var(--blue); text-transform: uppercase; letter-spacing: 0.4px; margin-bottom: 2px; }
 .changelog-group .cg-items { margin: 0; padding-left: 18px; display: flex; flex-direction: column; gap: 3px; color: var(--text); }
 
+#smart-import-details summary {
+  cursor: pointer;
+  list-style: none;
+  outline: none;
+}
+#smart-import-details summary::-webkit-details-marker { display: none; }
+#smart-import-details summary h2::before {
+  content: "▸ ";
+  color: var(--blue);
+}
+#smart-import-details[open] summary h2::before {
+  content: "▾ ";
+}
+
 .muted { color: var(--muted); font-size: 13px; }
 .empty-state { text-align: center; padding: 40px 20px; color: var(--muted); }
