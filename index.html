@@ -7,7 +7,7 @@
 <link rel="manifest" href="manifest.json" />
 <meta name="theme-color" content="#1a56a0" />
 <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
-<link rel="stylesheet" href="style.css?v=1.9.8" />
+<link rel="stylesheet" href="style.css?v=1.9.9" />
 </head>
 <body>
 
@@ -143,7 +143,12 @@
         <form id="team-form">
           <div class="form-grid">
             <div class="form-field"><label>Name *</label><input type="text" id="team-name" placeholder="z.B. U19, D-Jugend" required /></div>
+            <div class="form-field"><label>Trainer</label><input type="text" id="team-trainer" placeholder="z.B. bei mehreren U9-Teams zur Unterscheidung" /></div>
           </div>
+          <p class="muted" style="margin:6px 0 10px;">
+            Bei mehreren Mannschaften mit gleichem Namen (z.B. 3x "U9") bitte jeweils einen unterschiedlichen Trainer eintragen –
+            er wird dann automatisch zur Unterscheidung angezeigt (z.B. "U9 (Trainer: Müller)").
+          </p>
           <button class="btn" type="submit">Mannschaft hinzufügen</button>
         </form>
       </div>
@@ -331,8 +336,8 @@
   </main>
 </div>
 
-<script src="config.js?v=1.9.8"></script>
-<script src="db.js?v=1.9.8"></script>
-<script src="app.js?v=1.9.8"></script>
+<script src="config.js?v=1.9.9"></script>
+<script src="db.js?v=1.9.9"></script>
+<script src="app.js?v=1.9.9"></script>
 </body>
 </html>

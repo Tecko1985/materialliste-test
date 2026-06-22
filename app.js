@@ -48,11 +48,11 @@ function migrateData(data) {
     if (m.satzLabel === undefined) m.satzLabel = "";
   });
   // Bestehende Freitext-Mannschaften ohne Stammdatensatz automatisch als Mannschaft anlegen
-  const existingNames = new Set(data.teams.map((t) => t.name.toLowerCase()));
+  const existingDisplayNames = new Set(data.teams.map((t) => teamDisplayName(t).toLowerCase()));
   data.materials.forEach((m) => {
-    if (m.mannschaft && !existingNames.has(m.mannschaft.toLowerCase())) {
+    if (m.mannschaft && !existingDisplayNames.has(m.mannschaft.toLowerCase())) {
       data.teams.push({ id: uuid(), name: m.mannschaft, trainer: "" });
-      existingNames.add(m.mannschaft.toLowerCase());
+      existingDisplayNames.add(m.mannschaft.toLowerCase());
     }
   });
   return data;
@@ -69,6 +69,13 @@ function resolveTeamByName(name) {
   return t;
 }
 
+// Mehrere Mannschaften können denselben Namen tragen (z.B. 3x "U9" mit je
+// eigenem Trainer) - der Trainer wird daher in den Anzeigenamen eingebaut,
+// damit sie überall (Auswahl, Materialliste, ...) eindeutig unterscheidbar sind.
+function teamDisplayName(team) {
+  return team.trainer ? `${team.name} (Trainer: ${team.trainer})` : team.name;
+}
+
 function compareTeamNames(a, b) {
   const numA = a.match(/\d+/);
   const numB = b.match(/\d+/);
@@ -83,13 +90,35 @@ function compareTeamNames(a, b) {
   return a.localeCompare(b, "de");
 }
 
+// Wendet eine Namens- oder Trainer-Änderung auf eine Mannschaft an,
+// inkl. Eindeutigkeits-Prüfung (Name+Trainer-Kombination) und Propagation
+// des neuen Anzeigenamens auf alle zugeordneten Material-Einträge.
+function applyTeamFieldChange(team, field, value) {
+  const otherName = field === "name" ? value : team.name;
+  const otherTrainer = field === "trainer" ? value : team.trainer;
+  if (field === "name" && !value) return false;
+  if (appData.teams.some((t) => t.id !== team.id && t.name.toLowerCase() === otherName.toLowerCase() && (t.trainer || "").toLowerCase() === otherTrainer.toLowerCase())) {
+    alert("Eine Mannschaft mit diesem Namen und Trainer existiert bereits.");
+    return false;
+  }
+  const oldDisplay = teamDisplayName(team);
+  team[field] = value;
+  const newDisplay = teamDisplayName(team);
+  if (oldDisplay !== newDisplay) {
+    appData.materials.forEach((m) => {
+      if (m.mannschaft === oldDisplay) m.mannschaft = newDisplay;
+    });
+  }
+  return true;
+}
+
 function teamOptionsHtml(selected) {
-  const names = appData.teams.map((t) => t.name);
+  const labels = appData.teams.map((t) => teamDisplayName(t));
   const options = [{ value: "", label: "— keine —" }];
-  if (selected && !names.includes(selected)) {
+  if (selected && !labels.includes(selected)) {
     options.push({ value: selected, label: `${selected} (nicht angelegt)` });
   }
-  names.sort(compareTeamNames).forEach((n) => options.push({ value: n, label: n }));
+  labels.sort(compareTeamNames).forEach((n) => options.push({ value: n, label: n }));
   return options.map((o) => `<option value="${escapeHtml(o.value)}" ${o.value === selected ? "selected" : ""}>${escapeHtml(o.label)}</option>`).join("");
 }
 
@@ -100,14 +129,22 @@ function getSelectedMannschaft() {
   return checked ? checked.dataset.name : "";
 }
 
+function getSelectedMannschaftTeamId() {
+  const grid = document.getElementById("mannschaft-checkbox-grid");
+  if (!grid) return "";
+  const checked = grid.querySelector('input[type="checkbox"]:checked');
+  return checked ? checked.dataset.id : "";
+}
+
 function renderMannschaftCheckboxes() {
   const grid = document.getElementById("mannschaft-checkbox-grid");
   if (!grid) return;
-  const prevSelected = getSelectedMannschaft();
-  const teams = appData.teams.slice().sort((a, b) => compareTeamNames(a.name, b.name));
-  grid.innerHTML = teams.map((t) => `
-    <label><input type="checkbox" data-name="${escapeHtml(t.name)}" ${t.name === prevSelected ? "checked" : ""} /> ${escapeHtml(t.name)}</label>
-  `).join("");
+  const prevSelectedId = getSelectedMannschaftTeamId();
+  const teams = appData.teams.slice().sort((a, b) => compareTeamNames(teamDisplayName(a), teamDisplayName(b)));
+  grid.innerHTML = teams.map((t) => {
+    const label = teamDisplayName(t);
+    return `<label><input type="checkbox" data-id="${t.id}" data-name="${escapeHtml(label)}" ${t.id === prevSelectedId ? "checked" : ""} /> ${escapeHtml(label)}</label>`;
+  }).join("");
   grid.querySelectorAll('input[type="checkbox"]').forEach((cb) => {
     cb.closest("label").classList.toggle("checked", cb.checked);
     cb.addEventListener("change", () => {
@@ -129,7 +166,7 @@ function renderMannschaftCheckboxes() {
 function updateMannschaftTrainerField() {
   const input = document.getElementById("m-mannschaft-trainer");
   if (!input) return;
-  const team = appData.teams.find((t) => t.name === getSelectedMannschaft());
+  const team = appData.teams.find((t) => t.id === getSelectedMannschaftTeamId());
   input.value = team ? team.trainer || "" : "";
 }
 
@@ -137,11 +174,17 @@ function setupMannschaftTrainerField() {
   const input = document.getElementById("m-mannschaft-trainer");
   if (!input) return;
   input.addEventListener("change", () => {
-    const team = appData.teams.find((t) => t.name === getSelectedMannschaft());
+    const team = appData.teams.find((t) => t.id === getSelectedMannschaftTeamId());
     if (!team) return;
-    team.trainer = input.value.trim();
+    const value = input.value.trim();
+    if (!applyTeamFieldChange(team, "trainer", value)) {
+      input.value = team.trainer;
+      return;
+    }
     persist();
     renderTeams();
+    renderListe();
+    renderMannschaftCheckboxes();
   });
 }
 
@@ -487,8 +530,8 @@ function populateListeFilters() {
 
   const jumpSelect = document.getElementById("liste-jump-select");
   jumpSelect.innerHTML = '<option value="">Wählen…</option>' +
-    appData.teams.slice().sort((a, b) => compareTeamNames(a.name, b.name))
-      .map((t) => `<option value="${escapeHtml(t.name)}">${escapeHtml(t.name)}</option>`).join("");
+    appData.teams.slice().sort((a, b) => compareTeamNames(teamDisplayName(a), teamDisplayName(b)))
+      .map((t) => `<option value="${escapeHtml(teamDisplayName(t))}">${escapeHtml(teamDisplayName(t))}</option>`).join("");
 }
 
 function filteredSortedMaterials() {
@@ -621,19 +664,15 @@ function renderListe() {
   empty.style.display = appData.materials.length === 0 ? "block" : "none";
 
   const groups = groupByMannschaft(list);
-  container.innerHTML = groups.map((g) => {
-    const team = appData.teams.find((t) => t.name === g.mannschaft);
-    const trainerSuffix = team && team.trainer ? ` · Trainer: ${escapeHtml(team.trainer)}` : "";
-    return `
+  container.innerHTML = groups.map((g) => `
     <div class="material-group" data-mannschaft="${escapeHtml(g.mannschaft)}">
-      <div class="material-group-title">${escapeHtml(g.mannschaft || "Ohne Mannschaft")} (${g.items.length})${trainerSuffix}</div>
+      <div class="material-group-title">${escapeHtml(g.mannschaft || "Ohne Mannschaft")} (${g.items.length})</div>
       <div class="material-edit-row material-edit-header">
         <span>Name</span><span>Kategorie</span><span>Mannschaft</span><span>Menge</span><span>Zustand</span><span></span>
       </div>
       <div class="player-grid">${buildRenderGroups(g.items).map((rg) => rg.type === "satz" ? satzRowHtml(rg) : materialRowHtml(rg.material)).join("")}</div>
     </div>
-  `;
-  }).join("");
+  `).join("");
 
   container.querySelectorAll("input, select").forEach((input) => {
     input.addEventListener("change", () => commitMaterialEdit(input));
@@ -669,29 +708,31 @@ function deleteMaterial(id) {
 function setupTeamForm() {
   document.getElementById("team-form").addEventListener("submit", (e) => {
     e.preventDefault();
-    const input = document.getElementById("team-name");
-    const name = input.value.trim();
+    const nameInput = document.getElementById("team-name");
+    const trainerInput = document.getElementById("team-trainer");
+    const name = nameInput.value.trim();
+    const trainer = trainerInput.value.trim();
     if (!name) return;
-    if (appData.teams.some((t) => t.name.toLowerCase() === name.toLowerCase())) {
-      alert("Diese Mannschaft existiert bereits.");
+    if (appData.teams.some((t) => t.name.toLowerCase() === name.toLowerCase() && (t.trainer || "").toLowerCase() === trainer.toLowerCase())) {
+      alert("Eine Mannschaft mit diesem Namen und Trainer existiert bereits.");
       return;
     }
-    appData.teams.push({ id: uuid(), name, trainer: "" });
+    appData.teams.push({ id: uuid(), name, trainer });
     persist();
     renderTeams();
     renderMannschaftCheckboxes();
     e.target.reset();
-    input.focus();
+    nameInput.focus();
   });
 }
 
 function renderTeams() {
   const empty = document.getElementById("teams-empty");
   const container = document.getElementById("teams-list");
-  const teams = appData.teams.slice().sort((a, b) => compareTeamNames(a.name, b.name));
+  const teams = appData.teams.slice().sort((a, b) => compareTeamNames(teamDisplayName(a), teamDisplayName(b)));
   empty.style.display = teams.length === 0 ? "block" : "none";
   container.innerHTML = teams.map((t) => {
-    const count = appData.materials.filter((m) => m.mannschaft === t.name).length;
+    const count = appData.materials.filter((m) => m.mannschaft === teamDisplayName(t)).length;
     return `
       <div class="team-edit-row" data-id="${t.id}">
         <input type="text" data-field="name" value="${escapeHtml(t.name)}" />
@@ -719,30 +760,11 @@ function commitTeamEdit(input) {
   const team = appData.teams.find((t) => t.id === id);
   if (!team) return;
   const field = input.dataset.field;
+  const value = input.value.trim();
 
-  if (field === "trainer") {
-    team.trainer = input.value.trim();
-    persist();
-    updateMannschaftTrainerField();
+  if (!applyTeamFieldChange(team, field, value)) {
+    input.value = team[field];
     return;
-  }
-
-  const newName = input.value.trim();
-  if (!newName) {
-    input.value = team.name;
-    return;
-  }
-  if (appData.teams.some((t) => t.id !== id && t.name.toLowerCase() === newName.toLowerCase())) {
-    alert("Eine Mannschaft mit diesem Namen existiert bereits.");
-    input.value = team.name;
-    return;
-  }
-  const oldName = team.name;
-  team.name = newName;
-  if (oldName !== newName) {
-    appData.materials.forEach((m) => {
-      if (m.mannschaft === oldName) m.mannschaft = newName;
-    });
   }
   persist();
   renderTeams();
@@ -753,13 +775,14 @@ function commitTeamEdit(input) {
 function deleteTeam(id) {
   const team = appData.teams.find((t) => t.id === id);
   if (!team) return;
-  const count = appData.materials.filter((m) => m.mannschaft === team.name).length;
+  const displayName = teamDisplayName(team);
+  const count = appData.materials.filter((m) => m.mannschaft === displayName).length;
   const msg = count > 0
-    ? `"${team.name}" löschen? ${count} Material-Eintrag/Einträge sind dieser Mannschaft zugeordnet und erscheinen danach unter "Ohne Mannschaft".`
-    : `Mannschaft "${team.name}" wirklich löschen?`;
+    ? `"${displayName}" löschen? ${count} Material-Eintrag/Einträge sind dieser Mannschaft zugeordnet und erscheinen danach unter "Ohne Mannschaft".`
+    : `Mannschaft "${displayName}" wirklich löschen?`;
   if (!confirm(msg)) return;
   appData.materials.forEach((m) => {
-    if (m.mannschaft === team.name) m.mannschaft = "";
+    if (m.mannschaft === displayName) m.mannschaft = "";
   });
   appData.teams = appData.teams.filter((t) => t.id !== id);
   persist();
@@ -1161,7 +1184,7 @@ function setupSmartImport() {
         id: uuid(),
         name,
         kategorie: get("kategorie"),
-        mannschaft: team ? team.name : "",
+        mannschaft: team ? teamDisplayName(team) : "",
         menge: get("menge"),
         einheit: get("einheit"),
         standort: get("standort"),

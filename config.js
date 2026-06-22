@@ -1,6 +1,18 @@
-const APP_VERSION = "1.9.8";
+const APP_VERSION = "1.9.9";
 
 const APP_CHANGELOG = [
+  {
+    version: "1.9.9",
+    groups: [
+      {
+        title: "Mannschaften",
+        items: [
+          "Mehrere Mannschaften mit gleichem Namen sind jetzt möglich (z.B. 3x \"U9\" mit unterschiedlichen Trainern) – Voraussetzung ist ein jeweils unterschiedlicher Trainer.",
+          "Der Trainer wird dafür automatisch in den Anzeigenamen eingebaut (z.B. \"U9 (Trainer: Müller)\") und so überall eindeutig unterscheidbar – in der Mannschaft-Auswahl, der Materialliste und allen Dropdowns."
+        ]
+      }
+    ]
+  },
   {
     version: "1.9.8",
     groups: [
