@@ -31,6 +31,10 @@ function escapeHtml(str) {
 function migrateData(data) {
   if (!Array.isArray(data.materials)) data.materials = [];
   if (!Array.isArray(data.teams)) data.teams = [];
+  data.teams.forEach((t) => {
+    if (t.id === undefined) t.id = uuid();
+    if (typeof t.name !== "string") t.name = "";
+  });
   data.materials.forEach((m) => {
     if (m.id === undefined) m.id = uuid();
     if (m.name === undefined) m.name = "";
@@ -623,7 +627,7 @@ function commitMaterialEdit(input) {
   const field = input.dataset.field;
   material[field] = field === "menge" ? input.value : input.value.trim();
   persist();
-  populateListeFilters();
+  renderListe();
 }
 
 function deleteMaterial(id) {
