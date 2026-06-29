@@ -7,7 +7,7 @@
 <link rel="manifest" href="manifest.json" />
 <meta name="theme-color" content="#1a56a0" />
 <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
-<link rel="stylesheet" href="style.css?v=1.0.4" />
+<link rel="stylesheet" href="style.css?v=1.1" />
 </head>
 <body>
 
@@ -87,6 +87,8 @@
     <button data-tab="liste" class="active">Materialliste</button>
     <button data-tab="hinzufuegen">Hinzufügen</button>
     <button data-tab="mannschaften" style="margin-left:auto;">Mannschaften</button>
+    <button data-tab="reserve">Reserve &amp; Umbuchung</button>
+    <button data-tab="inventur">Inventur</button>
     <button data-tab="einstellungen">Einstellungen</button>
   </nav>
 
@@ -260,6 +262,150 @@
       </div>
     </section>
 
+    <!-- Reserve & Umbuchung -->
+    <section class="tab-section" id="tab-reserve">
+      <div class="card">
+        <div style="display:flex; align-items:center; justify-content:space-between; gap:12px; flex-wrap:wrap;">
+          <h2 style="margin-bottom:0;">Reserve-Material</h2>
+        </div>
+        <p class="muted" style="margin:10px 0;">
+          Eigener Vorratsbestand, unabhängig von den Mannschaften – wird genutzt, um Verluste bei Mannschaften
+          auszugleichen oder Überschuss aufzunehmen. Felder direkt anklicken und bearbeiten.
+        </p>
+        <div class="empty-state" id="reserve-empty" style="display:none;">Noch kein Reserve-Material angelegt.</div>
+        <div id="reserve-groups"></div>
+        <details id="reserve-add-details" style="margin-top:16px;">
+          <summary><h3 style="display:inline;">Reserve-Material hinzufügen</h3></summary>
+          <form id="reserve-form" style="margin-top:12px;">
+            <div class="form-grid">
+              <div class="form-field"><label>Name *</label><input type="text" id="r-name" required /></div>
+              <div class="form-field"><label>Kategorie</label><input type="text" id="r-kategorie" placeholder="z.B. Bekleidung, Sportgerät" /></div>
+              <div class="form-field"><label>Menge</label><input type="number" id="r-menge" min="0" step="1" /></div>
+              <div class="form-field"><label>Zustand</label><input type="text" id="r-zustand" placeholder="z.B. Neu, Gut, Defekt" /></div>
+            </div>
+            <button class="btn" type="submit">Reserve-Material hinzufügen</button>
+          </form>
+        </details>
+      </div>
+
+      <div class="card">
+        <h2>Umbuchung</h2>
+        <p class="muted" style="margin-bottom:14px;">
+          Material zwischen Reserve und einer Mannschaft verschieben – z.B. um einen Verlust bei einer Mannschaft
+          aus der Reserve auszugleichen, oder umgekehrt Überschuss einer Mannschaft in die Reserve zurückzugeben.
+        </p>
+        <form id="umbuchung-form">
+          <div class="form-grid">
+            <div class="form-field">
+              <label>Richtung *</label>
+              <select id="ub-richtung">
+                <option value="reserve->team">Reserve → Mannschaft</option>
+                <option value="team->reserve">Mannschaft → Reserve</option>
+              </select>
+            </div>
+            <div class="form-field">
+              <label>Mannschaft *</label>
+              <select id="ub-mannschaft" required></select>
+            </div>
+            <div class="form-field">
+              <label>Material *</label>
+              <select id="ub-material" required></select>
+            </div>
+            <div class="form-field">
+              <label>Menge *</label>
+              <input type="number" id="ub-menge" min="1" step="1" required />
+            </div>
+            <div class="form-field" style="flex:2; min-width:220px;">
+              <label>Kommentar</label>
+              <input type="text" id="ub-kommentar" placeholder="z.B. Grund der Umbuchung" />
+            </div>
+          </div>
+          <button class="btn" type="submit">Umbuchen</button>
+        </form>
+      </div>
+
+      <div class="card">
+        <h2>Umbuchungsprotokoll</h2>
+        <div style="display:flex; gap:16px; flex-wrap:wrap; margin-bottom:14px;">
+          <div class="form-field" style="max-width:220px;">
+            <label>Mannschaft</label>
+            <select id="ub-log-mannschaft-filter"><option value="">Alle Mannschaften</option></select>
+          </div>
+          <div class="form-field" style="max-width:220px;">
+            <label>Richtung</label>
+            <select id="ub-log-richtung-filter">
+              <option value="">Alle Richtungen</option>
+              <option value="reserve->team">Reserve → Mannschaft</option>
+              <option value="team->reserve">Mannschaft → Reserve</option>
+            </select>
+          </div>
+        </div>
+        <div class="empty-state" id="umbuchung-log-empty" style="display:none;">Noch keine Umbuchung erfasst.</div>
+        <div id="umbuchung-log-list"></div>
+      </div>
+    </section>
+
+    <!-- Inventur -->
+    <section class="tab-section" id="tab-inventur">
+      <div class="card">
+        <h2>Neue Inventur</h2>
+        <p class="muted" style="margin-bottom:14px;">
+          Mannschaft oder Reserve wählen, Ist-Menge je Position erfassen und bei Abweichung zum Soll-Bestand
+          entscheiden, ob der neue Wert übernommen wird. Beim Abschließen wird der Stand als Stichtag gespeichert.
+        </p>
+        <div class="form-grid" id="inventur-start-row">
+          <div class="form-field">
+            <label>Mannschaft / Reserve</label>
+            <select id="inventur-ziel-select"></select>
+          </div>
+        </div>
+        <div class="btn-row" style="justify-content:flex-start;" id="inventur-start-actions">
+          <button class="btn" id="btn-inventur-start" type="button">Inventur starten</button>
+        </div>
+
+        <div id="inventur-erfassung" style="display:none; margin-top:18px;">
+          <div class="material-edit-row material-edit-header inventur-row">
+            <span>Name</span><span>Kategorie</span><span>Soll</span><span>Ist</span><span>Diff.</span><span>Übernehmen</span>
+          </div>
+          <div class="player-grid" id="inventur-positionen"></div>
+          <div class="btn-row" style="justify-content:flex-start; margin-top:14px;">
+            <button class="btn success" id="btn-inventur-abschliessen" type="button">Inventur abschließen</button>
+            <button class="btn secondary" id="btn-inventur-abbrechen" type="button">Abbrechen</button>
+          </div>
+        </div>
+      </div>
+
+      <div class="card">
+        <h2>Inventur-Historie</h2>
+        <div class="empty-state" id="inventur-historie-empty" style="display:none;">Noch keine Inventur durchgeführt.</div>
+        <div id="inventur-historie-list"></div>
+      </div>
+
+      <div class="card">
+        <details id="vergleich-details">
+          <summary><h2 style="display:inline;">Vergleich zweier Stichtage</h2></summary>
+          <div class="form-grid" style="margin-top:12px;">
+            <div class="form-field">
+              <label>Mannschaft / Reserve</label>
+              <select id="vergleich-ziel-select"></select>
+            </div>
+            <div class="form-field">
+              <label>Stichtag A</label>
+              <select id="vergleich-datum-a"></select>
+            </div>
+            <div class="form-field">
+              <label>Stichtag B</label>
+              <select id="vergleich-datum-b"></select>
+            </div>
+          </div>
+          <div class="empty-state" id="vergleich-empty" style="display:none;">
+            Bitte zwei vorhandene Stichtage derselben Mannschaft/Reserve wählen.
+          </div>
+          <div id="vergleich-result"></div>
+        </details>
+      </div>
+    </section>
+
     <!-- Einstellungen -->
     <section class="tab-section" id="tab-einstellungen">
       <div class="card">
@@ -323,8 +469,8 @@
   </main>
 </div>
 
-<script src="config.js?v=1.0.4"></script>
-<script src="db.js?v=1.0.4"></script>
-<script src="app.js?v=1.0.4"></script>
+<script src="config.js?v=1.1"></script>
+<script src="db.js?v=1.1"></script>
+<script src="app.js?v=1.1"></script>
 </body>
 </html>

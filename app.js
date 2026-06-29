@@ -1,4 +1,5 @@
-let appData = { materials: [], teams: [] };
+let appData = { materials: [], teams: [], reserve: [], inventuren: [], umbuchungen: [] };
+const RESERVE_KEY = "__RESERVE__";
 let fileHandle = null;
 let pendingHandle = null;
 let backupDirHandle = null;
@@ -11,6 +12,10 @@ let listeSearchQuery = "";
 let listeKategorieFilter = "";
 let listeMannschaftFilter = "";
 let listeSortOrder = "name-asc";
+
+let umbuchungFilterZiel = "";
+let umbuchungFilterRichtung = "";
+let inventurAktiv = null;
 
 function uuid() {
   return "xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx".replace(/[xy]/g, (c) => {
@@ -28,25 +33,47 @@ function escapeHtml(str) {
   return String(str ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
 }
 
+function ensureMaterialFields(m, { withMannschaft } = { withMannschaft: true }) {
+  if (m.id === undefined) m.id = uuid();
+  if (m.name === undefined) m.name = "";
+  if (m.kategorie === undefined) m.kategorie = "";
+  if (withMannschaft && m.mannschaft === undefined) m.mannschaft = "";
+  if (m.menge === undefined) m.menge = "";
+  if (m.einheit === undefined) m.einheit = "";
+  if (m.standort === undefined) m.standort = "";
+  if (m.trainer === undefined) m.trainer = "";
+  if (m.zustand === undefined) m.zustand = "";
+  if (m.satzId === undefined) m.satzId = "";
+  if (m.satzLabel === undefined) m.satzLabel = "";
+}
+
 function migrateData(data) {
   if (!Array.isArray(data.materials)) data.materials = [];
   if (!Array.isArray(data.teams)) data.teams = [];
+  if (!Array.isArray(data.reserve)) data.reserve = [];
+  if (!Array.isArray(data.inventuren)) data.inventuren = [];
+  if (!Array.isArray(data.umbuchungen)) data.umbuchungen = [];
   data.teams.forEach((t) => {
     if (t.id === undefined) t.id = uuid();
     if (typeof t.name !== "string") t.name = "";
   });
-  data.materials.forEach((m) => {
-    if (m.id === undefined) m.id = uuid();
-    if (m.name === undefined) m.name = "";
-    if (m.kategorie === undefined) m.kategorie = "";
-    if (m.mannschaft === undefined) m.mannschaft = "";
-    if (m.menge === undefined) m.menge = "";
-    if (m.einheit === undefined) m.einheit = "";
-    if (m.standort === undefined) m.standort = "";
-    if (m.trainer === undefined) m.trainer = "";
-    if (m.zustand === undefined) m.zustand = "";
-    if (m.satzId === undefined) m.satzId = "";
-    if (m.satzLabel === undefined) m.satzLabel = "";
+  data.materials.forEach((m) => ensureMaterialFields(m, { withMannschaft: true }));
+  data.reserve.forEach((m) => ensureMaterialFields(m, { withMannschaft: false }));
+  data.inventuren.forEach((inv) => {
+    if (inv.id === undefined) inv.id = uuid();
+    if (inv.datum === undefined) inv.datum = todayStr();
+    if (inv.ziel === undefined) inv.ziel = "";
+    if (!Array.isArray(inv.positionen)) inv.positionen = [];
+  });
+  data.umbuchungen.forEach((u) => {
+    if (u.id === undefined) u.id = uuid();
+    if (u.datum === undefined) u.datum = todayStr();
+    if (u.name === undefined) u.name = "";
+    if (u.kategorie === undefined) u.kategorie = "";
+    if (u.menge === undefined) u.menge = 0;
+    if (u.richtung === undefined) u.richtung = "reserve->team";
+    if (u.ziel === undefined) u.ziel = "";
+    if (u.kommentar === undefined) u.kommentar = "";
   });
   // Bestehende Freitext-Mannschaften ohne Stammdatensatz automatisch als Mannschaft anlegen
   const existingNames = new Set(data.teams.map((t) => t.name.toLowerCase()));
@@ -411,6 +438,8 @@ function switchTab(tab) {
   document.querySelectorAll(".tab-section").forEach((s) => s.classList.toggle("active", s.id === "tab-" + tab));
   if (tab === "liste") renderListe();
   if (tab === "mannschaften") renderTeams();
+  if (tab === "reserve") { renderReserve(); populateUmbuchungSelects(); renderUmbuchungsLog(); }
+  if (tab === "inventur") { populateInventurZielSelect(); renderInventurHistorie(); populateVergleichSelects(); }
 }
 
 function renderAll() {
@@ -550,11 +579,13 @@ function setupListeFilters() {
 
 function materialRowHtml(m, opts = {}) {
   const showTrainer = opts.showTrainer !== false;
+  const showMannschaft = opts.showMannschaft !== false;
+  const extraClass = [showTrainer ? "" : "no-trainer", showMannschaft ? "" : "no-mannschaft"].filter(Boolean).join(" ");
   return `
-    <div class="material-edit-row${showTrainer ? "" : " no-trainer"}" data-id="${m.id}">
+    <div class="material-edit-row${extraClass ? " " + extraClass : ""}" data-id="${m.id}">
       <input type="text" data-field="name" value="${escapeHtml(m.name)}" />
       <input type="text" data-field="kategorie" value="${escapeHtml(m.kategorie)}" />
-      <select data-field="mannschaft">${teamOptionsHtml(m.mannschaft)}</select>
+      ${showMannschaft ? `<select data-field="mannschaft">${teamOptionsHtml(m.mannschaft)}</select>` : ""}
       <input type="number" data-field="menge" value="${escapeHtml(m.menge)}" />
       ${showTrainer ? `<input type="text" data-field="trainer" value="${escapeHtml(m.trainer)}" placeholder="Trainer" />` : ""}
       <input type="text" data-field="zustand" value="${escapeHtml(m.zustand)}" />
@@ -565,7 +596,8 @@ function materialRowHtml(m, opts = {}) {
   `;
 }
 
-function satzRowHtml(satz) {
+function satzRowHtml(satz, opts = {}) {
+  const showMannschaft = opts.showMannschaft !== false;
   const trainerValue = (satz.items[0] && satz.items[0].trainer) || "";
   return `
     <details class="satz-group">
@@ -573,10 +605,10 @@ function satzRowHtml(satz) {
         🎽 ${escapeHtml(satz.label || "Trikotsatz")} <span class="muted">(Satz · ${satz.items.length} ${satz.items.length === 1 ? "Teil" : "Teile"})</span>
         <input type="text" class="satz-trainer-input" data-satz-id="${escapeHtml(satz.satzId)}" value="${escapeHtml(trainerValue)}" placeholder="Trainer" />
       </summary>
-      <div class="material-edit-row material-edit-header no-trainer">
-        <span>Name</span><span>Kategorie</span><span>Mannschaft</span><span>Menge</span><span>Zustand</span><span></span>
+      <div class="material-edit-row material-edit-header no-trainer${showMannschaft ? "" : " no-mannschaft"}">
+        <span>Name</span><span>Kategorie</span>${showMannschaft ? "<span>Mannschaft</span>" : ""}<span>Menge</span><span>Zustand</span><span></span>
       </div>
-      <div class="player-grid">${satz.items.map((m) => materialRowHtml(m, { showTrainer: false })).join("")}</div>
+      <div class="player-grid">${satz.items.map((m) => materialRowHtml(m, { showTrainer: false, showMannschaft })).join("")}</div>
     </details>
   `;
 }
@@ -622,10 +654,10 @@ function renderListe() {
   });
 }
 
-function commitSatzTrainerEdit(input) {
+function commitSatzTrainerEdit(input, list = appData.materials) {
   const satzId = input.dataset.satzId;
   const value = input.value.trim();
-  appData.materials.forEach((m) => {
+  list.forEach((m) => {
     if (m.satzId === satzId) m.trainer = value;
   });
   persist();
@@ -718,6 +750,14 @@ function commitTeamEdit(input) {
     appData.materials.forEach((m) => {
       if (m.mannschaft === oldName) m.mannschaft = newName;
     });
+    // Umbenennung auch auf Protokoll und Inventur-Stichtage übertragen, sonst
+    // verlieren Log-Filter und Vergleich nach dem Umbenennen ihre Zuordnung.
+    appData.umbuchungen.forEach((u) => {
+      if (u.ziel === oldName) u.ziel = newName;
+    });
+    appData.inventuren.forEach((inv) => {
+      if (inv.ziel === oldName) inv.ziel = newName;
+    });
   }
   persist();
   renderTeams();
@@ -741,6 +781,216 @@ function deleteTeam(id) {
   renderTeams();
   renderListe();
   renderMannschaftCheckboxes();
+}
+
+// ---------- Reserve ----------
+
+function renderReserve() {
+  const empty = document.getElementById("reserve-empty");
+  const container = document.getElementById("reserve-groups");
+  const list = appData.reserve.slice().sort((a, b) => (a.name || "").localeCompare(b.name || "", "de"));
+  empty.style.display = list.length === 0 ? "block" : "none";
+  container.innerHTML = list.length === 0 ? "" : `
+    <div class="material-edit-row material-edit-header no-mannschaft">
+      <span>Name</span><span>Kategorie</span><span>Menge</span><span>Trainer</span><span>Zustand</span><span></span>
+    </div>
+    <div class="player-grid">${buildRenderGroups(list).map((rg) => rg.type === "satz" ? satzRowHtml(rg, { showMannschaft: false }) : materialRowHtml(rg.material, { showMannschaft: false })).join("")}</div>
+  `;
+
+  container.querySelectorAll("input:not(.satz-trainer-input)").forEach((input) => {
+    input.addEventListener("change", () => commitReserveEdit(input));
+  });
+  container.querySelectorAll(".satz-trainer-input").forEach((input) => {
+    input.addEventListener("click", (e) => e.stopPropagation());
+    input.addEventListener("change", () => commitSatzTrainerEdit(input, appData.reserve));
+  });
+  container.querySelectorAll('[data-action="delete"]').forEach((btn) => {
+    btn.addEventListener("click", () => {
+      const id = btn.closest(".material-edit-row").dataset.id;
+      deleteReserveItem(id);
+    });
+  });
+}
+
+function commitReserveEdit(input) {
+  const row = input.closest(".material-edit-row");
+  const id = row.dataset.id;
+  const item = appData.reserve.find((m) => m.id === id);
+  if (!item) return;
+  const field = input.dataset.field;
+  item[field] = field === "menge" ? input.value : input.value.trim();
+  persist();
+  renderReserve();
+}
+
+function deleteReserveItem(id) {
+  if (!confirm("Diesen Reserve-Eintrag wirklich löschen?")) return;
+  appData.reserve = appData.reserve.filter((m) => m.id !== id);
+  persist();
+  renderReserve();
+}
+
+function setupReserveForm() {
+  document.getElementById("reserve-form").addEventListener("submit", (e) => {
+    e.preventDefault();
+    const name = document.getElementById("r-name").value.trim();
+    if (!name) {
+      alert("Bitte einen Namen eingeben.");
+      return;
+    }
+    appData.reserve.push({
+      id: uuid(),
+      name,
+      kategorie: document.getElementById("r-kategorie").value.trim(),
+      menge: document.getElementById("r-menge").value,
+      einheit: "",
+      standort: "",
+      trainer: "",
+      zustand: document.getElementById("r-zustand").value.trim(),
+      satzId: "",
+      satzLabel: ""
+    });
+    persist();
+    renderReserve();
+    e.target.reset();
+    document.getElementById("r-name").focus();
+  });
+}
+
+// ---------- Umbuchung ----------
+
+function findOrCreateMatchingEntry(list, { name, kategorie, zustand, mannschaft }) {
+  let entry = list.find((m) =>
+    (m.name || "").toLowerCase() === (name || "").toLowerCase() &&
+    (m.kategorie || "") === (kategorie || "") &&
+    (m.zustand || "") === (zustand || "") &&
+    (mannschaft === undefined || m.mannschaft === mannschaft)
+  );
+  if (!entry) {
+    entry = { id: uuid(), name, kategorie, menge: "0", einheit: "", standort: "", trainer: "", zustand, satzId: "", satzLabel: "" };
+    if (mannschaft !== undefined) entry.mannschaft = mannschaft;
+    list.push(entry);
+  }
+  return entry;
+}
+
+function buchUm({ richtung, materialId, menge, ziel, kommentar }) {
+  const sourceList = richtung === "reserve->team" ? appData.reserve : appData.materials;
+  const source = sourceList.find((m) => m.id === materialId);
+  if (!source) {
+    alert("Material nicht gefunden.");
+    return false;
+  }
+  const verfuegbar = Number(source.menge) || 0;
+  if (!menge || menge <= 0 || menge > verfuegbar) {
+    alert(`Ungültige Menge. Verfügbar: ${verfuegbar}.`);
+    return false;
+  }
+  source.menge = String(verfuegbar - menge);
+
+  if (richtung === "reserve->team") {
+    const target = findOrCreateMatchingEntry(appData.materials, { name: source.name, kategorie: source.kategorie, zustand: source.zustand, mannschaft: ziel });
+    target.menge = String((Number(target.menge) || 0) + menge);
+  } else {
+    const target = findOrCreateMatchingEntry(appData.reserve, { name: source.name, kategorie: source.kategorie, zustand: source.zustand });
+    target.menge = String((Number(target.menge) || 0) + menge);
+  }
+
+  appData.umbuchungen.push({
+    id: uuid(), datum: todayStr(), name: source.name, kategorie: source.kategorie,
+    menge, richtung, ziel, kommentar: kommentar || ""
+  });
+  persist();
+  return true;
+}
+
+function populateUmbuchungMaterialSelect() {
+  const richtung = document.getElementById("ub-richtung").value;
+  const mannschaft = document.getElementById("ub-mannschaft").value;
+  const materialSelect = document.getElementById("ub-material");
+  const list = (richtung === "reserve->team" ? appData.reserve : appData.materials.filter((m) => m.mannschaft === mannschaft))
+    .slice()
+    .sort((a, b) => (a.name || "").localeCompare(b.name || "", "de"));
+  materialSelect.innerHTML = list.length === 0
+    ? '<option value="">— kein Material verfügbar —</option>'
+    : list.map((m) => `<option value="${m.id}">${escapeHtml(m.name)}${m.kategorie ? " (" + escapeHtml(m.kategorie) + ")" : ""} – ${escapeHtml(m.menge)} verfügbar</option>`).join("");
+}
+
+function populateUmbuchungSelects() {
+  const mannschaftSelect = document.getElementById("ub-mannschaft");
+  const prevMannschaft = mannschaftSelect.value;
+  const teams = appData.teams.slice().sort((a, b) => compareTeamNames(a.name, b.name));
+  mannschaftSelect.innerHTML = teams.map((t) => `<option value="${escapeHtml(t.name)}">${escapeHtml(t.name)}</option>`).join("");
+  if (teams.some((t) => t.name === prevMannschaft)) mannschaftSelect.value = prevMannschaft;
+  populateUmbuchungMaterialSelect();
+
+  const logFilter = document.getElementById("ub-log-mannschaft-filter");
+  const prevLogFilter = logFilter.value;
+  logFilter.innerHTML = '<option value="">Alle Mannschaften</option>' + teams.map((t) => `<option value="${escapeHtml(t.name)}">${escapeHtml(t.name)}</option>`).join("");
+  logFilter.value = teams.some((t) => t.name === prevLogFilter) ? prevLogFilter : "";
+}
+
+function renderUmbuchungsLog() {
+  const empty = document.getElementById("umbuchung-log-empty");
+  const container = document.getElementById("umbuchung-log-list");
+  let list = appData.umbuchungen.slice().sort((a, b) => b.datum.localeCompare(a.datum));
+  if (umbuchungFilterZiel) list = list.filter((u) => u.ziel === umbuchungFilterZiel);
+  if (umbuchungFilterRichtung) list = list.filter((u) => u.richtung === umbuchungFilterRichtung);
+  empty.style.display = list.length === 0 ? "block" : "none";
+  container.innerHTML = list.length === 0 ? "" : `
+    <div class="umbuchung-log-row umbuchung-log-header">
+      <span>Datum</span><span>Material</span><span>Menge</span><span>Richtung</span><span>Mannschaft</span><span>Kommentar</span>
+    </div>
+    ${list.map((u) => `
+      <div class="umbuchung-log-row">
+        <span>${escapeHtml(u.datum)}</span>
+        <span>${escapeHtml(u.name)}${u.kategorie ? " (" + escapeHtml(u.kategorie) + ")" : ""}</span>
+        <span>${escapeHtml(String(u.menge))}</span>
+        <span class="badge-richtung">${u.richtung === "reserve->team" ? "Reserve → Mannschaft" : "Mannschaft → Reserve"}</span>
+        <span>${escapeHtml(u.ziel)}</span>
+        <span>${escapeHtml(u.kommentar)}</span>
+      </div>
+    `).join("")}
+  `;
+}
+
+function setupUmbuchungForm() {
+  document.getElementById("ub-richtung").addEventListener("change", populateUmbuchungMaterialSelect);
+  document.getElementById("ub-mannschaft").addEventListener("change", populateUmbuchungMaterialSelect);
+
+  document.getElementById("umbuchung-form").addEventListener("submit", (e) => {
+    e.preventDefault();
+    const richtung = document.getElementById("ub-richtung").value;
+    const ziel = document.getElementById("ub-mannschaft").value;
+    const materialId = document.getElementById("ub-material").value;
+    const menge = Number(document.getElementById("ub-menge").value);
+    const kommentar = document.getElementById("ub-kommentar").value.trim();
+    if (!ziel) {
+      alert("Bitte eine Mannschaft auswählen.");
+      return;
+    }
+    if (!materialId) {
+      alert("Bitte ein Material auswählen.");
+      return;
+    }
+    if (!buchUm({ richtung, materialId, menge, ziel, kommentar })) return;
+    // Erst zurücksetzen, dann neu befüllen – sonst zeigt das Material-Dropdown
+    // weiter die Liste der alten Richtung, während die Richtung schon "reserve->team" ist.
+    e.target.reset();
+    renderReserve();
+    renderListe();
+    populateUmbuchungSelects();
+    renderUmbuchungsLog();
+  });
+
+  document.getElementById("ub-log-mannschaft-filter").addEventListener("change", (e) => {
+    umbuchungFilterZiel = e.target.value;
+    renderUmbuchungsLog();
+  });
+  document.getElementById("ub-log-richtung-filter").addEventListener("change", (e) => {
+    umbuchungFilterRichtung = e.target.value;
+    renderUmbuchungsLog();
+  });
 }
 
 // ---------- Hinzufügen ----------
@@ -1276,6 +1526,238 @@ function setupExcelImport() {
   });
 }
 
+// ---------- Inventur ----------
+
+function inventurZielLabel(ziel) {
+  return ziel === RESERVE_KEY ? "Reserve" : ziel;
+}
+
+function populateInventurZielSelect() {
+  const select = document.getElementById("inventur-ziel-select");
+  const prev = select.value;
+  const teams = appData.teams.slice().sort((a, b) => compareTeamNames(a.name, b.name));
+  const options = teams.map((t) => ({ value: t.name, label: t.name })).concat([{ value: RESERVE_KEY, label: "Reserve" }]);
+  select.innerHTML = options.map((o) => `<option value="${escapeHtml(o.value)}">${escapeHtml(o.label)}</option>`).join("");
+  if (options.some((o) => o.value === prev)) select.value = prev;
+}
+
+function startInventur(ziel) {
+  const sourceList = ziel === RESERVE_KEY ? appData.reserve : appData.materials.filter((m) => m.mannschaft === ziel);
+  inventurAktiv = {
+    id: uuid(),
+    datum: todayStr(),
+    ziel,
+    positionen: sourceList.map((m) => ({
+      materialId: m.id, name: m.name, kategorie: m.kategorie, satzLabel: m.satzLabel,
+      soll: m.menge, ist: m.menge, uebernommen: false
+    }))
+  };
+  document.getElementById("inventur-erfassung").style.display = "block";
+  renderInventurErfassung();
+}
+
+function renderInventurErfassung() {
+  const wrap = document.getElementById("inventur-erfassung");
+  if (!inventurAktiv) {
+    wrap.style.display = "none";
+    return;
+  }
+  wrap.style.display = "block";
+  const container = document.getElementById("inventur-positionen");
+  container.innerHTML = inventurAktiv.positionen.map((p, idx) => {
+    const diff = (Number(p.ist) || 0) - (Number(p.soll) || 0);
+    return `
+      <div class="material-edit-row inventur-row${diff !== 0 ? " diff" : ""}" data-index="${idx}">
+        <span>${escapeHtml(p.name)}${p.satzLabel ? ` <span class="muted">(${escapeHtml(p.satzLabel)})</span>` : ""}</span>
+        <span>${escapeHtml(p.kategorie)}</span>
+        <span>${escapeHtml(p.soll)}</span>
+        <input type="number" data-field="ist" value="${escapeHtml(p.ist)}" />
+        <span>${diff > 0 ? "+" : ""}${diff}</span>
+        <label class="checkbox-label"><input type="checkbox" data-field="uebernommen" ${p.uebernommen ? "checked" : ""} ${diff === 0 ? "disabled" : ""} /></label>
+      </div>
+    `;
+  }).join("");
+
+  container.querySelectorAll('input[data-field="ist"]').forEach((input) => {
+    input.addEventListener("change", () => commitInventurIstEdit(input));
+  });
+  container.querySelectorAll('input[data-field="uebernommen"]').forEach((input) => {
+    input.addEventListener("change", () => {
+      const idx = Number(input.closest(".inventur-row").dataset.index);
+      inventurAktiv.positionen[idx].uebernommen = input.checked;
+    });
+  });
+}
+
+function commitInventurIstEdit(input) {
+  const idx = Number(input.closest(".inventur-row").dataset.index);
+  inventurAktiv.positionen[idx].ist = input.value;
+  inventurAktiv.positionen[idx].uebernommen = false;
+  renderInventurErfassung();
+}
+
+function finalizeInventur() {
+  if (!inventurAktiv) return;
+  if (!confirm("Inventur abschließen und als Stichtag speichern? Übernommene Abweichungen korrigieren den aktuellen Bestand.")) return;
+  const sourceList = inventurAktiv.ziel === RESERVE_KEY ? appData.reserve : appData.materials;
+  inventurAktiv.positionen.forEach((p) => {
+    if (p.uebernommen) {
+      const m = sourceList.find((x) => x.id === p.materialId);
+      if (m) m.menge = p.ist;
+    }
+  });
+  appData.inventuren.push(inventurAktiv);
+  inventurAktiv = null;
+  persist();
+  document.getElementById("inventur-erfassung").style.display = "none";
+  renderListe();
+  renderReserve();
+  renderInventurHistorie();
+  populateVergleichSelects();
+}
+
+function renderInventurHistorie() {
+  const empty = document.getElementById("inventur-historie-empty");
+  const container = document.getElementById("inventur-historie-list");
+  const list = appData.inventuren.slice().sort((a, b) => b.datum.localeCompare(a.datum));
+  empty.style.display = list.length === 0 ? "block" : "none";
+  container.innerHTML = list.map((inv) => `
+    <details class="satz-group">
+      <summary>${escapeHtml(inv.datum)} – ${escapeHtml(inventurZielLabel(inv.ziel))} <span class="muted">(${inv.positionen.length} Position(en))</span></summary>
+      <div class="material-edit-row material-edit-header inventur-row">
+        <span>Name</span><span>Kategorie</span><span>Soll</span><span>Ist</span><span>Diff.</span><span>Übernommen</span>
+      </div>
+      <div class="player-grid">
+        ${inv.positionen.map((p) => {
+          const diff = (Number(p.ist) || 0) - (Number(p.soll) || 0);
+          return `
+            <div class="material-edit-row inventur-row${diff !== 0 ? " diff" : ""}">
+              <span>${escapeHtml(p.name)}</span><span>${escapeHtml(p.kategorie)}</span><span>${escapeHtml(p.soll)}</span><span>${escapeHtml(p.ist)}</span><span>${diff > 0 ? "+" : ""}${diff}</span><span>${p.uebernommen ? "Ja" : "Nein"}</span>
+            </div>
+          `;
+        }).join("")}
+      </div>
+    </details>
+  `).join("");
+}
+
+function setupInventurForm() {
+  document.getElementById("btn-inventur-start").addEventListener("click", () => {
+    const ziel = document.getElementById("inventur-ziel-select").value;
+    if (!ziel) {
+      alert("Bitte eine Mannschaft oder Reserve wählen.");
+      return;
+    }
+    const sourceList = ziel === RESERVE_KEY ? appData.reserve : appData.materials.filter((m) => m.mannschaft === ziel);
+    if (sourceList.length === 0) {
+      alert("Keine Material-Positionen für diese Auswahl vorhanden.");
+      return;
+    }
+    startInventur(ziel);
+  });
+  document.getElementById("btn-inventur-abschliessen").addEventListener("click", finalizeInventur);
+  document.getElementById("btn-inventur-abbrechen").addEventListener("click", () => {
+    if (!confirm("Laufende Inventur verwerfen?")) return;
+    inventurAktiv = null;
+    document.getElementById("inventur-erfassung").style.display = "none";
+  });
+}
+
+// ---------- Vergleich ----------
+
+function populateVergleichSelects() {
+  const zielSelect = document.getElementById("vergleich-ziel-select");
+  const prevZiel = zielSelect.value;
+  const ziele = [...new Set(appData.inventuren.map((i) => i.ziel))].sort((a, b) => inventurZielLabel(a).localeCompare(inventurZielLabel(b), "de"));
+  zielSelect.innerHTML = ziele.map((z) => `<option value="${escapeHtml(z)}">${escapeHtml(inventurZielLabel(z))}</option>`).join("");
+  if (ziele.includes(prevZiel)) zielSelect.value = prevZiel;
+  populateVergleichDatumSelects();
+}
+
+function populateVergleichDatumSelects() {
+  const ziel = document.getElementById("vergleich-ziel-select").value;
+  const datumASelect = document.getElementById("vergleich-datum-a");
+  const datumBSelect = document.getElementById("vergleich-datum-b");
+  const snapshots = appData.inventuren.filter((i) => i.ziel === ziel).slice().sort((a, b) => a.datum.localeCompare(b.datum));
+  const optsHtml = snapshots.map((s) => `<option value="${s.id}">${escapeHtml(s.datum)}</option>`).join("");
+  datumASelect.innerHTML = optsHtml;
+  datumBSelect.innerHTML = optsHtml;
+  if (snapshots.length >= 2) {
+    datumASelect.value = snapshots[0].id;
+    datumBSelect.value = snapshots[snapshots.length - 1].id;
+  }
+  renderVergleich();
+}
+
+function renderVergleich() {
+  const idA = document.getElementById("vergleich-datum-a").value;
+  const idB = document.getElementById("vergleich-datum-b").value;
+  const empty = document.getElementById("vergleich-empty");
+  const result = document.getElementById("vergleich-result");
+  const snapA = appData.inventuren.find((i) => i.id === idA);
+  const snapB = appData.inventuren.find((i) => i.id === idB);
+  if (!snapA || !snapB || idA === idB) {
+    empty.style.display = "block";
+    result.innerHTML = "";
+    return;
+  }
+  empty.style.display = "none";
+
+  const keyOf = (p) => (p.name || "").toLowerCase() + "|" + (p.kategorie || "").toLowerCase();
+  // Gleiche Position (Name+Kategorie) kann mehrfach vorkommen (z.B. gleicher Artikel
+  // in unterschiedlichem Zustand). Mengen aufsummieren statt Einträge zu überschreiben.
+  function aggregate(positionen) {
+    const map = new Map();
+    positionen.forEach((p) => {
+      const key = keyOf(p);
+      const ist = Number(p.ist) || 0;
+      if (map.has(key)) {
+        map.get(key).ist += ist;
+      } else {
+        map.set(key, { name: p.name, kategorie: p.kategorie, ist });
+      }
+    });
+    return map;
+  }
+  const mapA = aggregate(snapA.positionen);
+  const mapB = aggregate(snapB.positionen);
+  const statusLabels = { neu: "Neu", entfallen: "Entfallen", unveraendert: "Unverändert", geaendert: "Geändert" };
+
+  const rows = [...new Set([...mapA.keys(), ...mapB.keys()])].map((key) => {
+    const a = mapA.get(key);
+    const b = mapB.get(key);
+    const istA = a ? a.ist : null;
+    const istB = b ? b.ist : null;
+    let status, diff;
+    if (a && !b) { status = "entfallen"; diff = -istA; }
+    else if (!a && b) { status = "neu"; diff = istB; }
+    else { diff = istB - istA; status = diff === 0 ? "unveraendert" : "geaendert"; }
+    return { name: (a || b).name, kategorie: (a || b).kategorie, istA, istB, diff, status };
+  }).sort((x, y) => x.name.localeCompare(y.name, "de"));
+
+  result.innerHTML = `
+    <div class="diff-table">
+      <div class="diff-row diff-header"><span>Name</span><span>Kategorie</span><span>Stichtag A</span><span>Stichtag B</span><span>Differenz</span><span>Status</span></div>
+      ${rows.map((r) => `
+        <div class="diff-row ${r.status === "neu" ? "added" : r.status === "entfallen" ? "removed" : r.status === "geaendert" ? "changed" : ""}">
+          <span>${escapeHtml(r.name)}</span>
+          <span>${escapeHtml(r.kategorie)}</span>
+          <span>${r.istA === null ? "—" : r.istA}</span>
+          <span>${r.istB === null ? "—" : r.istB}</span>
+          <span>${r.diff > 0 ? "+" : ""}${r.diff}</span>
+          <span>${statusLabels[r.status]}</span>
+        </div>
+      `).join("")}
+    </div>
+  `;
+}
+
+function setupVergleichForm() {
+  document.getElementById("vergleich-ziel-select").addEventListener("change", populateVergleichDatumSelects);
+  document.getElementById("vergleich-datum-a").addEventListener("change", renderVergleich);
+  document.getElementById("vergleich-datum-b").addEventListener("change", renderVergleich);
+}
+
 // ---------- Automatisches Backup ----------
 
 function setupBackupFolder() {
@@ -1353,5 +1835,9 @@ window.addEventListener("DOMContentLoaded", () => {
   setupBackupButtons();
   setupBackupFolder();
   setupExcelImport();
+  setupReserveForm();
+  setupUmbuchungForm();
+  setupInventurForm();
+  setupVergleichForm();
   init();
 });

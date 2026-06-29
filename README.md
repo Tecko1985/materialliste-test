@@ -13,6 +13,8 @@ Live: https://tecko1985.github.io/Materialliste/
 - **Excel-Import**: Material aus einer .xlsx/.xls/.csv-Datei importieren (Spalten: Name, Kategorie, Menge, Einheit, Standort, Zustand).
 - **JSON-Export/-Import**: Manuelle Sicherungskopie der Daten als JSON-Datei herunterladen oder einspielen.
 - **Automatisches Backup**: Backup-Ordner wählen, in den bei jedem App-Start automatisch eine datierte JSON-Sicherung geschrieben wird.
+- **Reserve & Umbuchung**: Eigener Reserve-Materialbestand unabhängig von den Mannschaften, zum Ausgleich von Verlusten. Umbuchung von Material zwischen Reserve und einer Mannschaft in beide Richtungen, mit lückenlosem Umbuchungsprotokoll (Datum, Material, Menge, Richtung, Kommentar).
+- **Inventur & Vergleich**: Stichtags-Inventur je Mannschaft oder Reserve – Soll-Bestand anzeigen, Ist-Menge erfassen, Abweichungen wahlweise pro Position übernehmen. Historie aller Stichtage sowie Vergleich zweier Stichtage derselben Mannschaft/Reserve mit Differenz-Darstellung.
 - **Offline-fähig (PWA)**: Installierbar, Service Worker für Offline-Nutzung.
 
 ## Datenspeicherung

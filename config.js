@@ -1,6 +1,27 @@
-const APP_VERSION = "1.0";
+const APP_VERSION = "1.1";
 
 const APP_CHANGELOG = [
+  {
+    version: "1.1",
+    groups: [
+      {
+        title: "Reserve & Umbuchung",
+        items: [
+          "Eigener Reserve-Materialbestand, unabhängig von den Mannschaften, zum Ausgleich von Verlusten.",
+          "Umbuchung von Material zwischen Reserve und einer Mannschaft in beide Richtungen.",
+          "Lückenloses Umbuchungsprotokoll mit Datum, Material, Menge, Richtung und Kommentar, filterbar nach Mannschaft und Richtung."
+        ]
+      },
+      {
+        title: "Inventur & Vergleich",
+        items: [
+          "Stichtags-Inventur je Mannschaft oder Reserve: Soll-Bestand anzeigen, Ist-Menge erfassen, Abweichungen pro Position wahlweise übernehmen.",
+          "Inventur-Historie aller bisherigen Stichtage.",
+          "Vergleich zweier Stichtage derselben Mannschaft/Reserve mit Differenz-Darstellung (neu, entfallen, geändert, unverändert)."
+        ]
+      }
+    ]
+  },
   {
     version: "1.0",
     groups: [

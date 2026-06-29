@@ -209,6 +209,19 @@ table tr:hover td { background: var(--gray); }
   .satz-group .material-edit-row.no-trainer { grid-template-columns: 1fr 1fr; }
 }
 
+.material-edit-row.no-mannschaft,
+.material-edit-header.no-mannschaft {
+  grid-template-columns: 1.3fr 0.9fr 0.6fr 1fr 1.1fr auto;
+}
+.material-edit-row.no-trainer.no-mannschaft,
+.material-edit-header.no-trainer.no-mannschaft {
+  grid-template-columns: 1.3fr 0.9fr 0.6fr 1.1fr auto;
+}
+@media (max-width: 800px) {
+  .material-edit-row.no-mannschaft,
+  .material-edit-row.no-trainer.no-mannschaft { grid-template-columns: 1fr 1fr; }
+}
+
 .material-group { margin-bottom: 22px; }
 .material-group:last-child { margin-bottom: 0; }
 .material-group-title {
@@ -317,3 +330,75 @@ table tr:hover td { background: var(--gray); }
 
 .muted { color: var(--muted); font-size: 13px; }
 .empty-state { text-align: center; padding: 40px 20px; color: var(--muted); }
+
+/* Inventur */
+.material-edit-row.inventur-row,
+.material-edit-header.inventur-row {
+  grid-template-columns: 1.4fr 1fr 0.6fr 0.8fr 0.7fr 0.9fr;
+}
+.material-edit-row.inventur-row.diff {
+  background: var(--gold-light);
+  border-color: var(--gold);
+}
+.inventur-row .checkbox-label { justify-content: center; }
+@media (max-width: 800px) {
+  .material-edit-row.inventur-row { grid-template-columns: 1fr 1fr; }
+}
+
+/* Umbuchungsprotokoll */
+.umbuchung-log-row {
+  display: grid;
+  grid-template-columns: 0.8fr 1.4fr 0.5fr 1.1fr 0.9fr 1.2fr;
+  gap: 8px;
+  align-items: center;
+  padding: 8px 10px;
+  border-radius: 8px;
+  font-size: 13px;
+}
+#umbuchung-log-list .umbuchung-log-row:not(.umbuchung-log-header) {
+  border: 1px solid var(--border);
+  margin-bottom: 8px;
+  background: var(--white);
+}
+.umbuchung-log-header {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--muted);
+  text-transform: uppercase;
+  padding: 0 10px 6px;
+}
+.badge-richtung { font-size: 12px; font-weight: 600; color: var(--blue); }
+@media (max-width: 800px) {
+  .umbuchung-log-row { grid-template-columns: 1fr 1fr; }
+  .umbuchung-log-header { display: none; }
+}
+
+/* Vergleich */
+.diff-table { display: flex; flex-direction: column; gap: 6px; margin-top: 14px; }
+.diff-row {
+  display: grid;
+  grid-template-columns: 1.4fr 1fr 0.7fr 0.7fr 0.7fr 0.9fr;
+  gap: 8px;
+  align-items: center;
+  padding: 8px 10px;
+  border-radius: 8px;
+  font-size: 13px;
+  border: 1px solid var(--border);
+  background: var(--white);
+}
+.diff-row.diff-header {
+  border: none;
+  background: none;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--muted);
+  text-transform: uppercase;
+  padding: 0 10px;
+}
+.diff-row.added { background: var(--green-light); border-color: var(--green); }
+.diff-row.removed { background: var(--red-light); border-color: var(--red); }
+.diff-row.changed { background: var(--gold-light); border-color: var(--gold); }
+@media (max-width: 800px) {
+  .diff-row { grid-template-columns: 1fr 1fr; }
+  .diff-row.diff-header { display: none; }
+}
