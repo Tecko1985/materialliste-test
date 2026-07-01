@@ -174,12 +174,12 @@ async function init() {
     document.getElementById("fs-api-warning").style.display = "block";
   }
 
-  const mode = await FileStore.getStorageMode();
-
-  // Cloud-Sync über die zentrale Anmeldung (Tools-Übersicht), außer der Nutzer
-  // hat bewusst den lokalen Datei-Modus gewählt. Das Login-Token liegt in
-  // derselben Origin (tecko1985.github.io) und wird einfach wiederverwendet.
-  if (mode !== "fs" && getSessionToken()) {
+  // Cloud-Sync über die zentrale Anmeldung (Tools-Übersicht): sobald ein
+  // Login-Token vorliegt, wird es genutzt — unabhängig von einem früher
+  // gespeicherten lokalen Datei-Modus. Das Token liegt in derselben Origin
+  // (tecko1985.github.io) und wird wiederverwendet. Nur ohne gültiges Login
+  // greift unten der lokale Datei-Modus.
+  if (getSessionToken()) {
     try {
       const data = await gatewayLoad();
       storageMode = "gateway";
